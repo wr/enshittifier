@@ -6,7 +6,7 @@ import pytest
 from fontTools.ttLib import TTFont
 
 from enshittifier import patch_one, PatchError
-from tests.conftest import build_font_at
+from tests.helpers import build_font_at
 
 
 def _args(**kwargs):
@@ -74,13 +74,13 @@ def test_ignore_rules_count(patched_font):
                 elif hasattr(subtable, "SubstLookupRecord"):
                     if not subtable.SubstLookupRecord:
                         ignore_count += 1
-                # Format 3
-                if hasattr(subtable, "BacktrackCoverage"):
+                # Format 3: coverage-based (BacktrackCoverage at subtable level)
+                elif hasattr(subtable, "BacktrackCoverage"):
                     if not getattr(subtable, "SubstLookupRecord", [True]):
                         ignore_count += 1
-    # The FEA has 2 ignore rules per feature (calt + liga) but they compile
-    # into 2 distinct ChainedContextSubst subtables total (shared lookup)
-    assert ignore_count >= 2
+    # 2 ignore rules (letter-before, letter-after) × 2 features (calt, liga)
+    # = 4 ChainedContextSubst ignore subtables
+    assert ignore_count == 4
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +121,6 @@ def test_refuses_existing_bak(minimal_ttf_path, tmp_path):
 
 
 def test_directory_mode(minimal_ttf_path, tmp_path):
-    import sys, io, argparse
-
     font_a = tmp_path / "a.ttf"
     font_b = tmp_path / "b.ttf"
     shutil.copy(minimal_ttf_path, font_a)
