@@ -1,6 +1,5 @@
 import shutil
 import types
-from pathlib import Path
 
 import pytest
 from fontTools.ttLib import TTFont
