@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-poopify.py — Patch any TTF or OTF so the standalone word "ai" (any case
-combo: ai / AI / Ai / aI) is substituted with a 💩 glyph. Untouched everywhere
-else (painter, rain, said, email, naïve, …).
+poopify.py — Patch any TTF, OTF, WOFF, or WOFF2 so the standalone word "ai"
+(any case combo: ai / AI / Ai / aI) is substituted with a 💩 glyph. Untouched
+everywhere else (painter, rain, said, email, naïve, …).
 
 Usage:
-    python3 poopify.py FONT.{ttf,otf}                # patches in place, .bak saved
-    python3 poopify.py FONT.{ttf,otf} -o OUT.ttf     # writes to OUT instead
-    python3 poopify.py FONT.{ttf,otf} --demo         # also writes demo.html
+    python3 poopify.py FONT.{ttf,otf,woff,woff2}                # patches in place, .bak saved
+    python3 poopify.py FONT.{ttf,otf,woff,woff2} -o OUT.ttf     # writes to OUT instead
+    python3 poopify.py FONT.{ttf,otf,woff,woff2} --demo         # also writes demo.html
     python3 poopify.py FONT.{ttf,otf} --svg X.svg    # use a custom glyph
 
 What it does:
@@ -528,9 +528,8 @@ class PatchError(Exception):
 
 
 # Font extensions we attempt to patch in directory mode. Lowercase only;
-# we compare case-insensitively. .ttc/.otc collections and .woff/.woff2
-# are intentionally excluded — they need different IO paths.
-PATCHABLE_EXTS = {".ttf", ".otf"}
+# we compare case-insensitively. .ttc/.otc collections are excluded.
+PATCHABLE_EXTS = {".ttf", ".otf", ".woff", ".woff2"}
 
 
 def parse_svg_arg(svg_path_arg: str | None):
@@ -752,7 +751,7 @@ def main():
                          and p.suffix.lower() in PATCHABLE_EXTS
                          and not p.name.endswith(".bak"))
         if not targets:
-            sys.exit(f"No .ttf/.otf files in {in_path}")
+            sys.exit(f"No .ttf/.otf/.woff/.woff2 files in {in_path}")
         print(f"Found {len(targets)} font(s) in {in_path.name}/\n")
     else:
         targets = [in_path]
