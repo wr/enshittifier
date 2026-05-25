@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# py2app build artifacts
+build/
+dist/
+installer/build_work/
+Enshittifier.dmg
