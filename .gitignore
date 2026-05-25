@@ -1,4 +1,11 @@
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
+
+# py2app build artifacts
+build/
+dist/
+installer/build_work/
+Enshittifier.dmg
