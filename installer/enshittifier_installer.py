@@ -44,16 +44,16 @@ SHADOW_NOTE = "⚠ installs shadow copy to ~/Library/Fonts"
 # ---------------------------------------------------------------------------
 
 def _collect_fonts(directory: Path) -> list[Path]:
-    """Return sorted list of patchable font files in *directory*.
+    """Return sorted list of patchable font files in *directory* (recursive).
 
-    Intentionally non-recursive: subdirectories like
-    /System/Library/Fonts/Supplemental/ would collide on shadow copy
-    (~/Library/Fonts/ is flat, so two same-named fonts would overwrite).
+    Recursion is required because macOS keeps most stock fonts in
+    /System/Library/Fonts/Supplemental/, and users sometimes organize
+    ~/Library/Fonts/ into subfolders.
     """
     if not directory.is_dir():
         return []
     return sorted(
-        p for p in directory.iterdir()
+        p for p in directory.rglob("*")
         if p.is_file() and p.suffix.lower() in PATCHABLE_EXTS
     )
 
@@ -68,16 +68,26 @@ def discover_fonts() -> list[dict]:
       path       – absolute Path of the source font
       location   – 'user' or 'system'
       shadow     – True for system fonts (will be copied to ~/Library/Fonts/)
+
+    Deduped by filename across all locations: ~/Library/Fonts/ is flat,
+    so two fonts sharing a name would collide on backup/shadow. User
+    fonts win over system fonts (a user copy already overrides the
+    system one via CoreText, so shadowing is redundant).
     """
     fonts = []
+    seen: set[str] = set()
 
     for p in _collect_fonts(USER_FONT_DIR):
-        if not _is_sf_excluded(p):
-            fonts.append({"path": p, "location": "user", "shadow": False})
+        if _is_sf_excluded(p) or p.name in seen:
+            continue
+        seen.add(p.name)
+        fonts.append({"path": p, "location": "user", "shadow": False})
 
     for p in _collect_fonts(SYSTEM_FONT_DIR):
-        if not _is_sf_excluded(p):
-            fonts.append({"path": p, "location": "system", "shadow": True})
+        if _is_sf_excluded(p) or p.name in seen:
+            continue
+        seen.add(p.name)
+        fonts.append({"path": p, "location": "system", "shadow": True})
 
     return fonts
 
