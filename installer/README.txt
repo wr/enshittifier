@@ -15,13 +15,10 @@ This DMG contains two apps:
 
 HOW IT WORKS
 ------------
-The installer scans three font locations:
+The installer scans two font locations:
 
   ~/Library/Fonts/         User fonts. Patched in-place; original saved
                            to ~/Desktop/Fonts (Backup)/.
-
-  /Library/Fonts/          Shared fonts (admin password required).
-                           Patched in-place; original saved to backup.
 
   /System/Library/Fonts/   System fonts. macOS SIP makes these read-only,
                            so the installer copies each chosen font into
@@ -31,14 +28,24 @@ The installer scans three font locations:
                            user-space apps (browsers, text editors, etc.).
                            The original system file is NEVER modified.
 
+/Library/Fonts/ (shared/admin fonts) is not scanned because patching it
+would require running the patch subprocess with administrator privileges,
+which isn't wired up. If you have a shared font you want patched, copy
+it to ~/Library/Fonts/ first and re-run the installer.
 
-IMPORTANT LIMITATION — UI CHROME FONTS
----------------------------------------
-SF Pro, SF Compact, and .AppleSystemUIFont are intentionally excluded
-from the font list. macOS WindowServer and the system UI load these fonts
-via private internal paths — not by PostScript name lookup — so placing a
-shadowed copy in ~/Library/Fonts/ has no effect on menus, the Dock, or
-system dialogs. The exclusion is a feature, not a bug.
+
+IMPORTANT LIMITATIONS
+---------------------
+1. UI chrome fonts. SF Pro, SF Compact, and .AppleSystemUIFont are
+   intentionally excluded. macOS WindowServer loads these via private
+   paths — not by PostScript-name lookup — so a shadowed copy in
+   ~/Library/Fonts/ has no effect on menus, the Dock, or system dialogs.
+
+2. .ttc (TrueType Collection) fonts. Only .ttf and .otf are patched.
+   Most stock macOS system fonts (Helvetica.ttc, Times.ttc, Geneva.ttc,
+   …) are .ttc bundles, which the underlying patcher does not yet handle.
+   Stock .ttf system fonts (e.g. Skia.ttf, Symbol.ttf) and any .ttf/.otf
+   you've installed yourself are fair game.
 
 
 AFTER INSTALLATION

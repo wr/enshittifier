@@ -3,8 +3,8 @@ py2app setup for Unshittifier.app
 
 Build with:
     cd installer
-    pip install py2app
-    python setup_unshittifier.py py2app
+    pip3 install py2app
+    python3 setup_unshittifier.py py2app
 """
 
 from setuptools import setup
@@ -13,8 +13,8 @@ APP = ["unshittifier.py"]
 DATA_FILES = []
 OPTIONS = {
     "argv_emulation": False,
-    "packages": ["fontTools", "svgpathtools", "cu2qu"],
-    "resources": ["../enshittifier.py"],
+    "packages": [],
+    "resources": [],
     "iconfile": None,
     "plist": {
         "CFBundleName": "Unshittifier",
@@ -22,7 +22,7 @@ OPTIONS = {
         "CFBundleIdentifier": "com.enshittifier.unshittifier",
         "CFBundleVersion": "1.0.0",
         "CFBundleShortVersionString": "1.0",
-        "NSHumanReadableCopyright": "Copyright © 2024",
+        "NSHumanReadableCopyright": "Copyright © 2026",
         "LSMinimumSystemVersion": "10.15",
         "NSHighResolutionCapable": True,
     },

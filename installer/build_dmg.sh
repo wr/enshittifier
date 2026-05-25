@@ -15,18 +15,18 @@ DMG_STAGE="$WORK_DIR/dmg_stage"
 DMG_OUT="$REPO_ROOT/Enshittifier.dmg"
 
 echo "==> Installing py2app..."
-pip install py2app --quiet
+pip3 install py2app --quiet
 
 # --- Build Enshittifier Installer.app ---
 echo "==> Building Enshittifier Installer.app..."
 cd "$SCRIPT_DIR"
 rm -rf build dist
-python setup_installer.py py2app --dist-dir "$WORK_DIR/installer_dist" 2>&1 | tail -5
+python3 setup_installer.py py2app --dist-dir "$WORK_DIR/installer_dist" 2>&1 | tail -5
 
 # --- Build Unshittifier.app ---
 echo "==> Building Unshittifier.app..."
 rm -rf build dist
-python setup_unshittifier.py py2app --dist-dir "$WORK_DIR/unshittifier_dist" 2>&1 | tail -5
+python3 setup_unshittifier.py py2app --dist-dir "$WORK_DIR/unshittifier_dist" 2>&1 | tail -5
 rm -rf build
 
 # --- Assemble DMG staging area ---

@@ -6,14 +6,13 @@ Reads ~/Desktop/Fonts (Backup)/, lets the user choose which fonts to restore,
 then:
   - System fonts (originally from /System/Library/Fonts/): deletes the shadow
     copy from ~/Library/Fonts/ so macOS falls back to the untouched system copy.
-  - User / shared fonts (originally from ~/Library/Fonts/ or /Library/Fonts/):
-    copies the backup back to its original path.
+  - User fonts (originally from ~/Library/Fonts/): copies the backup back to
+    its original path.
 """
 
-import os
+import json
 import shutil
 import subprocess
-import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -22,9 +21,9 @@ from tkinter import messagebox, ttk
 # Constants
 # ---------------------------------------------------------------------------
 USER_FONT_DIR   = Path.home() / "Library" / "Fonts"
-LOCAL_FONT_DIR  = Path("/Library/Fonts")
 SYSTEM_FONT_DIR = Path("/System/Library/Fonts")
 BACKUP_DIR      = Path.home() / "Desktop" / "Fonts (Backup)"
+ORIGINS_FILE    = BACKUP_DIR / "origins.json"
 
 PATCHABLE_EXTS = {".ttf", ".otf"}
 
@@ -33,38 +32,51 @@ PATCHABLE_EXTS = {".ttf", ".otf"}
 # Backup discovery
 # ---------------------------------------------------------------------------
 
+def _load_origins() -> dict:
+    if ORIGINS_FILE.exists():
+        try:
+            return json.loads(ORIGINS_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
 def discover_backups() -> list[dict]:
     """
     Return font descriptors from the backup folder.
     Each dict has:
-      backup_path  – Path inside ~/Desktop/Fonts (Backup)/
-      original_dir – where the font originally lived
-      location     – 'user', 'local', or 'system'
+      backup_path    – Path inside ~/Desktop/Fonts (Backup)/
+      original_path  – Path the font should be restored to
+      location       – 'user' or 'system'
     """
     if not BACKUP_DIR.is_dir():
         return []
 
+    origins = _load_origins()
     results = []
     for p in sorted(BACKUP_DIR.iterdir()):
         if not (p.is_file() and p.suffix.lower() in PATCHABLE_EXTS):
             continue
 
-        # Determine origin by checking which directory the font came from
-        if (SYSTEM_FONT_DIR / p.name).exists():
-            location, original_dir = "system", SYSTEM_FONT_DIR
-        elif (LOCAL_FONT_DIR / p.name).exists() or (USER_FONT_DIR / p.name).exists():
-            # Prefer local; if neither, fall back to user
-            if (LOCAL_FONT_DIR / p.name).exists():
-                location, original_dir = "local", LOCAL_FONT_DIR
-            else:
-                location, original_dir = "user", USER_FONT_DIR
+        entry = origins.get(p.name)
+        if entry:
+            location = entry["location"]
+            original_path = Path(entry["original_path"])
         else:
-            # Original path no longer determinable — assume user
-            location, original_dir = "user", USER_FONT_DIR
+            # Older backup without a manifest entry: fall back to a
+            # filesystem-based guess. Prefer user over system, since user
+            # files were always patched in-place (manifest absent shouldn't
+            # happen for new installs).
+            if (USER_FONT_DIR / p.name).exists():
+                location, original_path = "user", USER_FONT_DIR / p.name
+            elif (SYSTEM_FONT_DIR / p.name).exists():
+                location, original_path = "system", SYSTEM_FONT_DIR / p.name
+            else:
+                location, original_path = "user", USER_FONT_DIR / p.name
 
         results.append({
             "backup_path": p,
-            "original_dir": original_dir,
+            "original_path": original_path,
             "location": location,
         })
 
@@ -84,17 +96,32 @@ def flush_font_cache():
     subprocess.run(["osascript", "-e", script], capture_output=True)
 
 
+def _prune_manifest(removed_names: list[str]) -> None:
+    """Drop restored entries from the origins manifest."""
+    if not ORIGINS_FILE.exists():
+        return
+    origins = _load_origins()
+    for name in removed_names:
+        origins.pop(name, None)
+    if origins:
+        ORIGINS_FILE.write_text(json.dumps(origins, indent=2, sort_keys=True))
+    else:
+        ORIGINS_FILE.unlink()
+
+
 def restore_fonts(selected: list[dict], progress_cb=None) -> list[str]:
     """
     Restore each selected backed-up font. Returns list of error strings.
     """
     errors = []
+    restored = []
+    total = len(selected)
     for i, desc in enumerate(selected):
         bp = desc["backup_path"]
         loc = desc["location"]
 
         if progress_cb:
-            progress_cb(i, len(selected), bp.name)
+            progress_cb(i, total, bp.name)
 
         try:
             if loc == "system":
@@ -103,16 +130,19 @@ def restore_fonts(selected: list[dict], progress_cb=None) -> list[str]:
                 if shadow.exists():
                     shadow.unlink()
             else:
-                # Copy backup back to original location
-                dest = desc["original_dir"] / bp.name
-                shutil.copy2(str(bp), str(dest))
+                # Copy backup back to its original location
+                shutil.copy2(str(bp), str(desc["original_path"]))
 
             # Remove the backup entry
             bp.unlink()
+            restored.append(bp.name)
 
         except Exception as e:
             errors.append(f"{bp.name}: {e}")
 
+    _prune_manifest(restored)
+    if progress_cb:
+        progress_cb(total, total, "")
     flush_font_cache()
     return errors
 
@@ -217,7 +247,6 @@ class UnshittifierApp(tk.Tk):
 
             loc_labels = {
                 "user": "~/Library/Fonts",
-                "local": "/Library/Fonts",
                 "system": "/System/Library/Fonts (removes shadow copy)",
             }
             label_text = f"{desc['backup_path'].name}  [{loc_labels[desc['location']]}]"

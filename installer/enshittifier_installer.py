@@ -4,7 +4,6 @@ Enshittifier Installer — macOS GUI for patching installed fonts.
 
 Discovers fonts in:
   ~/Library/Fonts/          (user fonts, no privilege required)
-  /Library/Fonts/           (shared fonts, prompts for admin via osascript)
   /System/Library/Fonts/    (system fonts; patched copy installed to ~/Library/Fonts/ to shadow)
 
 SF Pro, SF Compact, and .AppleSystemUIFont variants are excluded because
@@ -12,12 +11,11 @@ macOS WindowServer loads those via private paths rather than PostScript-name
 lookup — shadowing them via ~/Library/Fonts/ has no effect on system UI chrome.
 """
 
-import os
+import json
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -26,9 +24,9 @@ from tkinter import messagebox, ttk
 # Constants
 # ---------------------------------------------------------------------------
 USER_FONT_DIR   = Path.home() / "Library" / "Fonts"
-LOCAL_FONT_DIR  = Path("/Library/Fonts")
 SYSTEM_FONT_DIR = Path("/System/Library/Fonts")
 BACKUP_DIR      = Path.home() / "Desktop" / "Fonts (Backup)"
+ORIGINS_FILE    = BACKUP_DIR / "origins.json"
 
 PATCHABLE_EXTS = {".ttf", ".otf"}
 
@@ -46,7 +44,12 @@ SHADOW_NOTE = "⚠ installs shadow copy to ~/Library/Fonts"
 # ---------------------------------------------------------------------------
 
 def _collect_fonts(directory: Path) -> list[Path]:
-    """Return sorted list of patchable font files in *directory* (non-recursive)."""
+    """Return sorted list of patchable font files in *directory*.
+
+    Intentionally non-recursive: subdirectories like
+    /System/Library/Fonts/Supplemental/ would collide on shadow copy
+    (~/Library/Fonts/ is flat, so two same-named fonts would overwrite).
+    """
     if not directory.is_dir():
         return []
     return sorted(
@@ -63,7 +66,7 @@ def discover_fonts() -> list[dict]:
     """
     Return a list of font descriptors, each a dict with keys:
       path       – absolute Path of the source font
-      location   – 'user', 'local', or 'system'
+      location   – 'user' or 'system'
       shadow     – True for system fonts (will be copied to ~/Library/Fonts/)
     """
     fonts = []
@@ -72,25 +75,11 @@ def discover_fonts() -> list[dict]:
         if not _is_sf_excluded(p):
             fonts.append({"path": p, "location": "user", "shadow": False})
 
-    for p in _collect_fonts(LOCAL_FONT_DIR):
-        if not _is_sf_excluded(p):
-            fonts.append({"path": p, "location": "local", "shadow": False})
-
     for p in _collect_fonts(SYSTEM_FONT_DIR):
         if not _is_sf_excluded(p):
             fonts.append({"path": p, "location": "system", "shadow": True})
 
     return fonts
-
-
-def prompt_admin_for_local_fonts():
-    """Use osascript to ask for admin credentials before listing /Library/Fonts/."""
-    script = (
-        'do shell script "ls /Library/Fonts" '
-        'with administrator privileges'
-    )
-    result = subprocess.run(["osascript", "-e", script], capture_output=True)
-    return result.returncode == 0
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +100,7 @@ def _enshittifier_path() -> Path:
     raise FileNotFoundError("Cannot find enshittifier.py")
 
 
-def patch_font(source_path: Path, target_path: Path):
+def patch_font(target_path: Path):
     """Patch *target_path* in-place (no backup — caller already made the backup)."""
     script = _enshittifier_path()
     result = subprocess.run(
@@ -121,6 +110,19 @@ def patch_font(source_path: Path, target_path: Path):
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"enshittifier.py failed on {target_path.name}")
+
+
+def _load_origins() -> dict:
+    if ORIGINS_FILE.exists():
+        try:
+            return json.loads(ORIGINS_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_origins(origins: dict) -> None:
+    ORIGINS_FILE.write_text(json.dumps(origins, indent=2, sort_keys=True))
 
 
 def flush_font_cache():
@@ -159,14 +161,16 @@ def install_fonts(selected: list[dict], progress_cb=None) -> list[str]:
     Returns a list of error strings (empty = all succeeded).
     """
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    origins = _load_origins()
 
     errors = []
+    total = len(selected)
     for i, desc in enumerate(selected):
         src = desc["path"]
         shadow = desc["shadow"]
 
         if progress_cb:
-            progress_cb(i, len(selected), src.name)
+            progress_cb(i, total, src.name)
 
         try:
             # --- Backup ---
@@ -179,15 +183,25 @@ def install_fonts(selected: list[dict], progress_cb=None) -> list[str]:
                 user_copy = USER_FONT_DIR / src.name
                 if not user_copy.exists():
                     shutil.copy2(str(src), str(user_copy))
-                patch_font(src, user_copy)
+                patch_font(user_copy)
             else:
-                # User/local font: patch original in-place.
-                patch_font(src, src)
+                # User font: patch original in-place.
+                patch_font(src)
+
+            # Record origin so the uninstaller restores to the right place
+            # without guessing from current filesystem state.
+            origins[src.name] = {
+                "original_path": str(src),
+                "location": desc["location"],
+            }
 
         except Exception as e:
             errors.append(f"{src.name}: {e}")
 
+    _save_origins(origins)
     copy_unshittifier_app(BACKUP_DIR)
+    if progress_cb:
+        progress_cb(total, total, "")
     flush_font_cache()
     return errors
 
@@ -297,7 +311,7 @@ class InstallerApp(tk.Tk):
             cb.pack(side="left")
 
             name_text = desc["path"].name
-            loc_tag = {"user": "~/Library/Fonts", "local": "/Library/Fonts",
+            loc_tag = {"user": "~/Library/Fonts",
                        "system": "/System/Library/Fonts"}[desc["location"]]
             label_text = f"{name_text}  [{loc_tag}]"
             if desc["shadow"]:
