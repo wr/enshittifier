@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-enshittifier.py — Patch any TTF or OTF so the standalone word "ai" (any case
+enshittifier.py — Patch any TTF, OTF, or WOFF/WOFF2 so the standalone word "ai" (any case
 combo: ai / AI / Ai / aI) is substituted with a 💩 glyph. Untouched everywhere
 else (painter, rain, said, email, naïve, …).
 
 Usage:
-    python3 enshittifier.py FONT.{ttf,otf}                # patches in place, .bak saved
-    python3 enshittifier.py FONT.{ttf,otf} -o OUT.ttf     # writes to OUT instead
-    python3 enshittifier.py FONT.{ttf,otf} --demo         # also writes demo.html
+    python3 enshittifier.py FONT.{ttf,otf,woff,woff2}                # patches in place, .bak saved
+    python3 enshittifier.py FONT.{ttf,otf,woff,woff2} -o OUT.ttf     # writes to OUT instead
+    python3 enshittifier.py FONT.{ttf,otf,woff,woff2} --demo         # also writes demo.html
     python3 enshittifier.py FONT.{ttf,otf} --svg X.svg    # use a custom glyph
-
+    
 What it does:
     1. Adds a glyph mapped to U+1F4A9 (default: embedded poop SVG).
        - For TTF: cubics → quadratics via cu2qu, written to `glyf`.
@@ -533,9 +533,8 @@ class PatchError(Exception):
 
 
 # Font extensions we attempt to patch in directory mode. Lowercase only;
-# we compare case-insensitively. .ttc/.otc collections and .woff/.woff2
-# are intentionally excluded — they need different IO paths.
-PATCHABLE_EXTS = {".ttf", ".otf"}
+# we compare case-insensitively. .ttc/.otc collections are excluded.
+PATCHABLE_EXTS = {".ttf", ".otf", ".woff", ".woff2"}
 
 
 def parse_svg_arg(svg_path_arg: str | None, verbose: bool = True):
@@ -883,7 +882,7 @@ def main():
                          and p.suffix.lower() in PATCHABLE_EXTS
                          and not p.name.endswith(".bak"))
         if not targets:
-            sys.exit(f"No .ttf/.otf files in {in_path}")
+            sys.exit(f"No .ttf/.otf/.woff/.woff2 files in {in_path}")
         if verbose:
             print(f"Found {len(targets)} font(s) in {in_path.name}/\n")
     else:
