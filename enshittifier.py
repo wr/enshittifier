@@ -22,10 +22,10 @@ What it does:
 
 Caveats:
     * Static fonts only. CFF2 (variable OTF) not yet supported.
-    * WOFF/WOFF2 inputs are rejected — convert to TTF/OTF first.
-    * Only the existing `calt` and `liga` feature blocks are replaced;
-      all other GSUB features (fractions, small caps, etc.) are preserved.
-    * GPOS (kerning) is preserved.
+    * Extends the font's existing GSUB table — all other features (fractions,
+      small caps, old-style figures, etc.) are preserved. The enshittification
+      lookups are appended to the font's existing `calt` and `liga` feature
+      records. GPOS (kerning) is preserved.
 """
 
 import argparse
