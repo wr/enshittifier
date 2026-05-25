@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-poopify.py — Patch any TTF or OTF so the standalone word "ai" (any case
+enshittifier.py — Patch any TTF or OTF so the standalone word "ai" (any case
 combo: ai / AI / Ai / aI) is substituted with a 💩 glyph. Untouched everywhere
 else (painter, rain, said, email, naïve, …).
 
 Usage:
-    python3 poopify.py FONT.{ttf,otf}                # patches in place, .bak saved
-    python3 poopify.py FONT.{ttf,otf} -o OUT.ttf     # writes to OUT instead
-    python3 poopify.py FONT.{ttf,otf} --demo         # also writes demo.html
-    python3 poopify.py FONT.{ttf,otf} --svg X.svg    # use a custom glyph
+    python3 enshittifier.py FONT.{ttf,otf}                # patches in place, .bak saved
+    python3 enshittifier.py FONT.{ttf,otf} -o OUT.ttf     # writes to OUT instead
+    python3 enshittifier.py FONT.{ttf,otf} --demo         # also writes demo.html
+    python3 enshittifier.py FONT.{ttf,otf} --svg X.svg    # use a custom glyph
 
 What it does:
     1. Adds a glyph mapped to U+1F4A9 (default: embedded poop SVG).
@@ -22,8 +22,10 @@ What it does:
 
 Caveats:
     * Static fonts only. CFF2 (variable OTF) not yet supported.
-    * Replaces the font's existing GSUB table — fractions, small caps, etc.
-      will be lost. GPOS (kerning) is preserved.
+    * WOFF/WOFF2 inputs are rejected — convert to TTF/OTF first.
+    * Only the existing `calt` and `liga` feature blocks are replaced;
+      all other GSUB features (fractions, small caps, etc.) are preserved.
+    * GPOS (kerning) is preserved.
 """
 
 import argparse
@@ -115,7 +117,7 @@ def draw_poop_to_pen(pen, upm: int, svg_path: str | None = None,
         pen.closePath()
 
 
-def add_poop_glyf(font: TTFont, upm: int, svg_path, viewbox):
+def add_poop_glyf(font: TTFont, upm: int, svg_path, viewbox, verbose: bool = True):
     """Add the poop glyph to a glyf-based (TTF) font."""
     from fontTools.pens.cu2quPen import Cu2QuPen
     glyph_pen = TTGlyphPen(None)
@@ -124,7 +126,7 @@ def add_poop_glyf(font: TTFont, upm: int, svg_path, viewbox):
     font["glyf"][POOP_GLYPH_NAME] = glyph_pen.glyph()
 
 
-def fix_variable_tables(font: TTFont):
+def fix_variable_tables(font: TTFont, verbose: bool = True):
     """Variable fonts have glyph-indexed tables (gvar, HVAR) that store the
     glyph count separately from maxp. Adding a glyph without updating these
     leaves the font corrupt. Add empty/identity variation data for the new
@@ -140,7 +142,8 @@ def fix_variable_tables(font: TTFont):
         if POOP_GLYPH_NAME not in gvar.variations:
             gvar.variations[POOP_GLYPH_NAME] = []
         gvar.glyphCount = font["maxp"].numGlyphs
-        print("  + gvar entry added (no variation)")
+        if verbose:
+            print("  + gvar entry added (no variation)")
 
     # HVAR — horizontal advance variations. Optional; if present, we just
     # drop it. The new glyph can't contribute deltas anyway, and HVAR is a
@@ -148,10 +151,11 @@ def fix_variable_tables(font: TTFont):
     # computing from gvar. Removing it is the safe option.
     if "HVAR" in font:
         del font["HVAR"]
-        print("  + HVAR dropped (renderer will recompute from gvar)")
+        if verbose:
+            print("  + HVAR dropped (renderer will recompute from gvar)")
 
 
-def add_poop_cff(font: TTFont, upm: int, svg_path, viewbox):
+def add_poop_cff(font: TTFont, upm: int, svg_path, viewbox, verbose: bool = True):
     """Add the poop glyph to a CFF-based (OTF) font."""
     from fontTools.pens.t2CharStringPen import T2CharStringPen
 
@@ -241,7 +245,7 @@ def get_primary_family_name(font: TTFont) -> str | None:
     return None
 
 
-def add_family_aliases(font: TTFont, aliases: list[str]):
+def add_family_aliases(font: TTFont, aliases: list[str], verbose: bool = True):
     """Make the font also match additional family names.
 
     Mechanism: the OpenType `name` table allows multiple records for the
@@ -278,8 +282,9 @@ def add_family_aliases(font: TTFont, aliases: list[str]):
         # nameID 16 = Typographic Family (preferred by many modern matchers)
         name_table.setName(alias, 16, 3, 1, lang_id)
     plural = "" if len(aliases) == 1 else "es"
-    print(f"  + added {len(aliases)} family-name alias{plural}: "
-          f"{', '.join(repr(a) for a in aliases)}")
+    if verbose:
+        print(f"  + added {len(aliases)} family-name alias{plural}: "
+              f"{', '.join(repr(a) for a in aliases)}")
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +538,7 @@ class PatchError(Exception):
 PATCHABLE_EXTS = {".ttf", ".otf"}
 
 
-def parse_svg_arg(svg_path_arg: str | None):
+def parse_svg_arg(svg_path_arg: str | None, verbose: bool = True):
     """Read --svg argument once; returns (path_d, viewbox) or (None, None)."""
     if not svg_path_arg:
         return None, None
@@ -552,16 +557,23 @@ def parse_svg_arg(svg_path_arg: str | None):
     else:
         viewbox = (float(root.attrib.get("width", 100)),
                    float(root.attrib.get("height", 100)))
-    print(f"Loaded SVG from {svg_path_arg} "
-          f"(viewBox {viewbox[0]:g}×{viewbox[1]:g})")
+    if verbose:
+        print(f"Loaded SVG from {svg_path_arg} "
+              f"(viewBox {viewbox[0]:g}×{viewbox[1]:g})")
     return path_d, viewbox
 
 
 def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
     """Patch a single font file. Raises PatchError on any per-file problem."""
+    verbose = not args.quiet
+
     # Output path: explicit -o wins; otherwise overwrite the input
     in_place = args.output is None
     out_path = in_path if in_place else Path(args.output).resolve()
+
+    # Reject --output pointing at an existing directory
+    if not in_place and out_path.is_dir():
+        raise PatchError("--output path is a directory; provide a file path instead.")
 
     # Plan the backup before touching anything
     bak_path: Path | None = None
@@ -579,6 +591,12 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
     # decompile later, fontTools reads the wrong number of entries and
     # asserts. Eager decompile sidesteps the whole problem.
     font.ensureDecompiled()
+
+    if font.flavor in ("woff", "woff2"):
+        raise PatchError(
+            "WOFF/WOFF2 not supported — convert to TTF/OTF first "
+            "(e.g. with `pyftsubset` or `woff2_decompress`).")
+
     is_glyf = "glyf" in font
     is_cff  = "CFF " in font
     is_cff2 = "CFF2" in font
@@ -589,7 +607,8 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
 
     flavor = "TTF (glyf)" if is_glyf else "OTF (CFF)"
     upm = font["head"].unitsPerEm
-    print(f"Loaded {in_path.name}  ({flavor}, UPM={upm})")
+    if verbose:
+        print(f"Loaded {in_path.name}  ({flavor}, UPM={upm})")
 
     # 1. Resolve required letter glyph names from the cmap
     cmap = font.getBestCmap()
@@ -606,9 +625,9 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
 
     # 2. Add the poop glyph
     if is_glyf:
-        add_poop_glyf(font, upm, custom_svg, custom_viewbox)
+        add_poop_glyf(font, upm, custom_svg, custom_viewbox, verbose=verbose)
     else:
-        add_poop_cff(font, upm, custom_svg, custom_viewbox)
+        add_poop_cff(font, upm, custom_svg, custom_viewbox, verbose=verbose)
     font["hmtx"][POOP_GLYPH_NAME] = (upm, 0)
 
     # Always call setGlyphOrder so the cached _reverseGlyphOrderDict gets
@@ -620,16 +639,89 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
         glyph_order.append(POOP_GLYPH_NAME)
     font.setGlyphOrder(glyph_order)
     font["maxp"].numGlyphs = len(glyph_order)
-    print(f"  + added '{POOP_GLYPH_NAME}' glyph (GID {font.getGlyphID(POOP_GLYPH_NAME)})")
+    if verbose:
+        print(f"  + added '{POOP_GLYPH_NAME}' glyph (GID {font.getGlyphID(POOP_GLYPH_NAME)})")
 
     # 2b. Fix up variable-font tables if present
-    fix_variable_tables(font)
+    fix_variable_tables(font, verbose=verbose)
 
     # 3. Update cmap
     update_cmap(font)
-    print(f"  + cmap U+{POOP_CODEPOINT:04X} → {POOP_GLYPH_NAME}")
+    if verbose:
+        print(f"  + cmap U+{POOP_CODEPOINT:04X} → {POOP_GLYPH_NAME}")
 
-    # 4. Build & compile the FEA
+    # 4. Build & compile the FEA, preserving all existing GSUB features
+    #    except calt and liga (which we replace with our own rules).
+    #
+    #    addOpenTypeFeaturesFromString replaces the entire GSUB table, so we
+    #    save the non-calt/non-liga lookups and features first, compile our
+    #    new rules into a fresh GSUB, then merge the saved data back in.
+    import copy as _copy
+
+    TARGET_TAGS = {"calt", "liga"}
+    saved_lookups: list = []
+    saved_feat_records: list = []
+    # Maps old feature index → into saved_feat_records (for script remapping)
+    old_feat_idx_map: dict[int, int] = {}
+    # Saved script/langsys structure: list of (script_tag, default_ls_indices, [(ls_tag, ls_indices)])
+    saved_scripts: list = []
+
+    if "GSUB" in font:
+        old_gsub = font["GSUB"].table
+        old_feat_records = old_gsub.FeatureList.FeatureRecord
+
+        # Find lookup indices only used by calt/liga (safe to drop)
+        kept_lookup_idxs: set[int] = set()
+        calt_liga_lookup_idxs: set[int] = set()
+        for fr in old_feat_records:
+            idxs = set(fr.Feature.LookupListIndex)
+            if fr.FeatureTag in TARGET_TAGS:
+                calt_liga_lookup_idxs.update(idxs)
+            else:
+                kept_lookup_idxs.update(idxs)
+        drop_lookup_idxs = calt_liga_lookup_idxs - kept_lookup_idxs
+
+        # Build old-lookup-index → new-saved-index mapping
+        old_to_saved_lookup: dict[int, int] = {}
+        for old_idx, lk in enumerate(old_gsub.LookupList.Lookup):
+            if old_idx not in drop_lookup_idxs:
+                old_to_saved_lookup[old_idx] = len(saved_lookups)
+                saved_lookups.append(_copy.deepcopy(lk))
+
+        # Collect non-calt/liga features with remapped lookup indices
+        for old_idx, fr in enumerate(old_feat_records):
+            if fr.FeatureTag not in TARGET_TAGS:
+                new_fr = _copy.deepcopy(fr)
+                new_fr.Feature.LookupListIndex = [
+                    old_to_saved_lookup[i]
+                    for i in fr.Feature.LookupListIndex
+                    if i in old_to_saved_lookup
+                ]
+                old_feat_idx_map[old_idx] = len(saved_feat_records)
+                saved_feat_records.append(new_fr)
+
+        # Save script/langsys feature references (filtered to kept features)
+        for sr in old_gsub.ScriptList.ScriptRecord:
+            script = sr.Script
+            default_idxs = []
+            if script.DefaultLangSys:
+                default_idxs = [
+                    old_feat_idx_map[i]
+                    for i in script.DefaultLangSys.FeatureIndex
+                    if i in old_feat_idx_map
+                ]
+            langsys_list = []
+            for lsr in script.LangSysRecord:
+                ls_idxs = [
+                    old_feat_idx_map[i]
+                    for i in lsr.LangSys.FeatureIndex
+                    if i in old_feat_idx_map
+                ]
+                langsys_list.append((lsr.LangSysTag, ls_idxs))
+            saved_scripts.append((sr.ScriptTag, default_idxs, langsys_list))
+
+        del font["GSUB"]
+
     a, A, i, I = glyphs["a"], glyphs["A"], glyphs["i"], glyphs["I"]
     fea = f"""
 languagesystem DFLT dflt;
@@ -656,10 +748,41 @@ feature liga {{
     sub [{a} {A}]' lookup ai_to_poop [{i} {I}]';
 }} liga;
 """
-    if "GSUB" in font:
-        del font["GSUB"]
     addOpenTypeFeaturesFromString(font, fea)
-    print("  + GSUB compiled (calt + liga)")
+
+    # Merge the saved non-calt/liga lookups and features back into the new GSUB.
+    if saved_feat_records:
+        new_gsub = font["GSUB"].table
+        lookup_offset = len(new_gsub.LookupList.Lookup)
+        feat_offset = len(new_gsub.FeatureList.FeatureRecord)
+
+        # Append old lookups
+        new_gsub.LookupList.Lookup.extend(saved_lookups)
+        new_gsub.LookupList.LookupCount = len(new_gsub.LookupList.Lookup)
+
+        # Append old features with lookup indices shifted by offset
+        for fr in saved_feat_records:
+            fr.Feature.LookupListIndex = [i + lookup_offset for i in fr.Feature.LookupListIndex]
+        new_gsub.FeatureList.FeatureRecord.extend(saved_feat_records)
+        new_gsub.FeatureList.FeatureCount = len(new_gsub.FeatureList.FeatureRecord)
+
+        # Add feature references back to script/langsys entries
+        new_script_map = {sr.ScriptTag: sr.Script for sr in new_gsub.ScriptList.ScriptRecord}
+        for script_tag, default_idxs, langsys_list in saved_scripts:
+            if script_tag not in new_script_map:
+                continue
+            script = new_script_map[script_tag]
+            if script.DefaultLangSys and default_idxs:
+                script.DefaultLangSys.FeatureIndex.extend(
+                    [i + feat_offset for i in default_idxs]
+                )
+            ls_map = {lsr.LangSysTag: lsr.LangSys for lsr in script.LangSysRecord}
+            for ls_tag, ls_idxs in langsys_list:
+                if ls_tag in ls_map and ls_idxs:
+                    ls_map[ls_tag].FeatureIndex.extend([i + feat_offset for i in ls_idxs])
+
+    if verbose:
+        print("  + GSUB compiled (calt + liga, existing features preserved)")
 
     # 5. Family-name aliases
     aliases: list[str] = []
@@ -671,7 +794,7 @@ feature liga {{
     for a in args.alias:
         if a not in aliases and a != primary:
             aliases.append(a)
-    add_family_aliases(font, aliases)
+    add_family_aliases(font, aliases, verbose=verbose)
 
     # 6. Atomic save with optional backup.
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -679,11 +802,13 @@ feature liga {{
     font.save(str(tmp_path))
     if bak_path is not None:
         in_path.rename(bak_path)
-        print(f"  + backed up original → {bak_path.name}")
+        if verbose:
+            print(f"  + backed up original → {bak_path.name}")
     elif in_place:
         in_path.unlink()
     tmp_path.rename(out_path)
-    print(f"  wrote {out_path}")
+    if verbose:
+        print(f"  wrote {out_path}")
 
     # 7. Optional demo
     if args.demo:
@@ -698,7 +823,8 @@ feature liga {{
         # Use a per-font demo filename so multiple fonts don't collide
         demo_path = out_path.with_name(f"{out_path.stem}.demo.html")
         write_demo(demo_path, out_path.name, family_label)
-        print(f"  wrote {demo_path}")
+        if verbose:
+            print(f"  wrote {demo_path}")
 
 
 def main():
@@ -730,15 +856,20 @@ def main():
                     dest="no_backup",
                     help="When overwriting in place, don't save the original "
                          "as <input>.bak. The name is a warning.")
+    ap.add_argument("-q", "--quiet", action="store_true",
+                    help="Suppress all informational output. Errors still go "
+                         "to stderr.")
     args = ap.parse_args()
 
     in_path = Path(args.input).resolve()
     if not in_path.exists():
         sys.exit(f"Input not found: {in_path}")
 
+    verbose = not args.quiet
+
     # Parse the custom SVG once if provided — same glyph applies to all fonts
     try:
-        custom_svg, custom_viewbox = parse_svg_arg(args.svg)
+        custom_svg, custom_viewbox = parse_svg_arg(args.svg, verbose=verbose)
     except PatchError as e:
         sys.exit(str(e))
 
@@ -753,7 +884,8 @@ def main():
                          and not p.name.endswith(".bak"))
         if not targets:
             sys.exit(f"No .ttf/.otf files in {in_path}")
-        print(f"Found {len(targets)} font(s) in {in_path.name}/\n")
+        if verbose:
+            print(f"Found {len(targets)} font(s) in {in_path.name}/\n")
     else:
         targets = [in_path]
 
@@ -761,7 +893,7 @@ def main():
     succeeded: list[Path] = []
     failed: list[tuple[Path, str]] = []
     for i, p in enumerate(targets):
-        if len(targets) > 1:
+        if verbose and len(targets) > 1:
             print(f"--- [{i+1}/{len(targets)}] {p.name} ---")
         try:
             patch_one(p, args, custom_svg, custom_viewbox)
@@ -775,14 +907,14 @@ def main():
                 raise
             print(f"  ERROR: {type(e).__name__}: {e}", file=sys.stderr)
             failed.append((p, f"{type(e).__name__}: {e}"))
-        if len(targets) > 1:
+        if verbose and len(targets) > 1:
             print()
 
-    if len(targets) > 1:
+    if verbose and len(targets) > 1:
         print(f"=== {len(succeeded)} patched, {len(failed)} skipped ===")
         for p, msg in failed:
             print(f"  - {p.name}: {msg}")
-    if failed and not succeeded:
+    if failed:
         sys.exit(1)
 
 

@@ -29,6 +29,8 @@ backup entirely.
                                     Repeatable. See "Aliases" below.
 --no-alias                          Disable the automatic no-spaces alias.
 --no-backup-yes-i-am-an-idiot       When overwriting in place, skip the .bak.
+-q, --quiet                         Suppress all informational output (stdout).
+                                    Errors still go to stderr.
 ```
 
 ## Aliases
@@ -113,9 +115,11 @@ Requires `fonttools` and `svgpathtools` (`pip install fonttools svgpathtools`).
 - **CFF2 (variable OTF) not yet supported.** Static TTF (glyf) and static OTF
   (CFF) both work. CFF2 uses a different charstring format and would need
   different plumbing.
-- **Existing GSUB is replaced.** Features like fractions, small caps, and
-  old-style figures will be lost. GPOS (kerning) is preserved, and `calt` /
-  `liga` are rebuilt with our rules.
+- **WOFF/WOFF2 inputs are rejected** with a clear error message. Convert to
+  TTF/OTF first using `pyftsubset` or `woff2_decompress`, then patch.
+- **Only `calt` and `liga` features are replaced.** All other GSUB features
+  (fractions, small caps, old-style figures, etc.) are preserved. GPOS
+  (kerning) is also preserved.
 - **Monochrome glyph.** No COLR/CPAL/SVG color tables. The poop renders in
   whatever color the surrounding text uses.
 - **Lowercase Latin only.** The substitution targets Basic Latin `a/A/i/I`
