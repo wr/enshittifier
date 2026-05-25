@@ -29,6 +29,8 @@ backup entirely.
                                     Repeatable. See "Aliases" below.
 --no-alias                          Disable the automatic no-spaces alias.
 --no-backup-yes-i-am-an-idiot       When overwriting in place, skip the .bak.
+-q, --quiet                         Suppress all informational output (stdout).
+                                    Errors still go to stderr.
 ```
 
 ## Aliases
