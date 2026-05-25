@@ -113,9 +113,10 @@ Requires `fonttools` and `svgpathtools` (`pip install fonttools svgpathtools`).
 - **CFF2 (variable OTF) not yet supported.** Static TTF (glyf) and static OTF
   (CFF) both work. CFF2 uses a different charstring format and would need
   different plumbing.
-- **Existing GSUB is replaced.** Features like fractions, small caps, and
-  old-style figures will be lost. GPOS (kerning) is preserved, and `calt` /
-  `liga` are rebuilt with our rules.
+- **Existing GSUB is extended, not replaced.** All other features (fractions,
+  small caps, old-style figures, etc.) are preserved. The enshittification
+  lookups are appended to the font's existing `calt` and `liga` feature
+  records. GPOS (kerning) is preserved.
 - **Monochrome glyph.** No COLR/CPAL/SVG color tables. The poop renders in
   whatever color the surrounding text uses.
 - **Lowercase Latin only.** The substitution targets Basic Latin `a/A/i/I`

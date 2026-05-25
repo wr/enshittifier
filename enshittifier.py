@@ -22,8 +22,10 @@ What it does:
 
 Caveats:
     * Static fonts only. CFF2 (variable OTF) not yet supported.
-    * Replaces the font's existing GSUB table — fractions, small caps, etc.
-      will be lost. GPOS (kerning) is preserved.
+    * Extends the font's existing GSUB table — all other features (fractions,
+      small caps, old-style figures, etc.) are preserved. The enshittification
+      lookups are appended to the font's existing `calt` and `liga` feature
+      records. GPOS (kerning) is preserved.
 """
 
 import argparse
@@ -656,8 +658,6 @@ feature liga {{
     sub [{a} {A}]' lookup ai_to_poop [{i} {I}]';
 }} liga;
 """
-    if "GSUB" in font:
-        del font["GSUB"]
     addOpenTypeFeaturesFromString(font, fea)
     print("  + GSUB compiled (calt + liga)")
 
