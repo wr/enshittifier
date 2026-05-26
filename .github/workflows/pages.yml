@@ -1,0 +1,45 @@
+# Deploy the `gh-pages` branch's contents to GitHub Pages.
+#
+# Why this workflow exists instead of using Pages' "branch source" mode:
+# the legacy branch-source builder choked on the gh-pages branch (every
+# build just reported "Page build failed" with no further detail, even
+# with .nojekyll committed). Switching Pages to the Actions-based source
+# uploads gh-pages's files directly as a Pages artifact, no Jekyll round
+# trip required.
+#
+# Trigger: any push to gh-pages (which is how `build-app.sh --release`
+# updates the appcast). Also exposed as workflow_dispatch for manual
+# re-runs.
+name: Deploy gh-pages to Pages
+
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one concurrent Pages deploy at a time.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
