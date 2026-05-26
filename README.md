@@ -4,12 +4,25 @@ Patches any TTF or OTF font so the standalone word **"ai"** (in any case
 combination — `ai`, `AI`, `Ai`, `aI`) is rendered as 💩. Untouched everywhere
 else: `painter`, `rain`, `said`, `email`, `naïve`, `Hawaii`, etc.
 
-## Installers
+## Installer
 
-Two GUI installers live in this repo:
+`installer-swift/` is a native SwiftUI macOS app — Font Book–style grid
+of every installed family, multi-select install/restore, signed +
+notarized DMGs with Sparkle in-app auto-updates.
 
-- `installer/` — the original Tk-based Python installer, built into a `.app` via py2app. Run `bash installer/build_dmg.sh` to produce `Enshittifier.dmg`.
-- `installer-swift/` — **native SwiftUI rewrite, in progress (W-123)**. SwiftPM project; build with `bash installer-swift/build-app.sh` to produce `Enshittifier.app` + `Enshittifier-native.dmg`. Phase 1: native UI with Core Text font-family grouping; the patcher itself still delegates to bundled `enshittifier.py` (Phase 2+ ports the patcher to Swift incrementally).
+- **Download the latest signed build** from the
+  [Releases page](https://github.com/wr/enshittifier/releases).
+- **Build from source:** `bash installer-swift/build-app.sh` produces
+  `installer-swift/build/Enshittifier.app` + a dev `.dmg` at the repo
+  root.
+- **Cut a signed release** (developer only): `bash
+  installer-swift/build-app.sh --release vX.Y.Z` — codesigns, notarizes,
+  staples, EdDSA-signs, publishes to GitHub Releases, prepends to the
+  Sparkle appcast on `gh-pages`. See `installer-swift/sparkle/README.md`
+  for the per-machine setup.
+
+Phase 1 of the installer shells out to bundled `enshittifier.py` for the
+actual patching; Phase 2+ ports the patcher tables to Swift incrementally.
 
 ## Usage
 
