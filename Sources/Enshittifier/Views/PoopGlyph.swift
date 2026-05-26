@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// Renders the same SVG glyph the patcher draws into fonts (see
-/// `SVG_POOP_PATH` in enshittifier.py), as a tintable SwiftUI Image.
+/// `SVG_POOP_PATH` in `engine/enshittifier.py`), as a tintable SwiftUI Image.
 ///
 /// We load via NSImage(data:) so the SVG bytes can live inline in code
 /// (no Resources bundle plumbing). isTemplate=true lets SwiftUI's

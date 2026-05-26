@@ -3,21 +3,20 @@
 # Local dev build of Enshittifier.app. Adhoc-signed, no notarization, no
 # Sparkle signature — for quick iteration only. Output:
 #
-#   installer-swift/build/Enshittifier.app           (adhoc-signed)
-#   Enshittifier-native.dmg                          (unsigned DMG)
+#   build/Enshittifier.app           (adhoc-signed)
+#   Enshittifier-dev.dmg             (unsigned DMG, repo root)
 #
 # For a shippable signed/notarized release, use scripts/release.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(dirname "$INSTALLER_DIR")"
-BUILD_DIR="$INSTALLER_DIR/build"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+BUILD_DIR="$REPO_ROOT/build"
 DD_DIR="$BUILD_DIR/dd"
 APP_NAME="Enshittifier"
-DMG_OUT="$REPO_ROOT/Enshittifier-native.dmg"
+DMG_OUT="$REPO_ROOT/Enshittifier-dev.dmg"
 
-cd "$INSTALLER_DIR"
+cd "$REPO_ROOT"
 
 if ! command -v xcodegen >/dev/null; then
     echo "error: xcodegen not installed (brew install xcodegen)" >&2

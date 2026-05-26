@@ -1,9 +1,13 @@
 import Foundation
 
-/// Invokes the bundled enshittifier.py via Process. Locates a working
-/// python3 + fontTools across the common installation paths so the app
-/// works when launched from Finder (where PATH is minimal).
-struct PythonFallbackPatcher {
+/// Drives the bundled `enshittifier.py` patching engine via Process. Locates
+/// a working python3 + fontTools across the common installation paths so the
+/// app works when launched from Finder (where PATH is minimal).
+///
+/// Shipped builds always use the relocatable interpreter under
+/// `Contents/Resources/venv/`. The system-python search paths exist only as
+/// a developer convenience when running the binary outside a packaged .app.
+struct PythonPatcher {
     func patch(url: URL) throws {
         let python = try Self.locatePython()
         let script = try Self.locateScript()
@@ -42,10 +46,10 @@ struct PythonFallbackPatcher {
         "/usr/bin/python3",            // Apple stub — last resort
     ]
 
-    /// Prefer the venv bundled inside Contents/Resources/venv/ — it has
-    /// fontTools pre-installed, so end users don't have to pip-install
-    /// anything. Falls back to a system python3 only if the bundled venv
-    /// is absent (running via `swift run` from the repo, or a misbuilt .app).
+    /// Prefer the venv bundled inside Contents/Resources/venv/ — it ships
+    /// with fontTools pre-installed. The system-python search paths only
+    /// matter when running the binary outside a packaged .app (e.g. dev
+    /// builds from DerivedData where the venv hasn't been bundled in).
     private static func locatePython() throws -> String {
         let fm = FileManager.default
 
@@ -100,7 +104,8 @@ struct PythonFallbackPatcher {
         if fm.fileExists(atPath: beside.path) { return beside }
 
         // 3. Walk up the directory tree looking for a sibling enshittifier.py
-        //    (covers `swift run` from the repo)
+        //    (covers the binary running outside a .app, with the repo
+        //    checked out somewhere above)
         var dir = execDir
         for _ in 0..<8 {
             let candidate = dir.appendingPathComponent("enshittifier.py")

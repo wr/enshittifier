@@ -8,8 +8,8 @@ import Sparkle
 ///
 /// Configuration lives in the app's Info.plist (`SUFeedURL`,
 /// `SUPublicEDKey`, `SUEnableAutomaticChecks`, etc.), declared in
-/// `installer-swift/project.yml`. The updater is started automatically;
-/// calling `checkForUpdates()` opens the standard Sparkle "An update is
+/// `project.yml`. The updater is started automatically; calling
+/// `checkForUpdates()` opens the standard Sparkle "An update is
 /// available" / "You're up to date" dialog.
 @MainActor
 final class UpdaterController: ObservableObject {

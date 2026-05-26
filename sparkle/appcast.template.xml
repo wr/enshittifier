@@ -6,10 +6,9 @@
     (served from the gh-pages branch root).
 
   Each release tagged `vX.Y.Z` produces a DMG that gets attached to a
-  GitHub Release; `installer-swift/build-app.sh --release vX.Y.Z` then
-  edits this file (in a gh-pages worktree) to prepend a new `<item>`
-  with the version, download URL, file length, and EdDSA signature
-  produced by Sparkle's `sign_update`.
+  GitHub Release; `scripts/release.sh X.Y.Z` then edits this file (in a
+  gh-pages worktree) to prepend a new `<item>` with the version, download
+  URL, file length, and EdDSA signature produced by Sparkle's `sign_update`.
 
   Don't hand-edit live entries unless you also update their
   sparkle:edSignature — Sparkle will reject anything where the signature
@@ -22,8 +21,7 @@
         <link>https://wr.github.io/enshittifier/appcast.xml</link>
         <description>Updates for Enshittifier</description>
         <language>en</language>
-        <!-- Releases inserted above this marker by build-app.sh --release.
-             Newest first. -->
+        <!-- Releases inserted above this marker by scripts/release.sh. -->
         <!-- ENSHITTIFIER_APPCAST_INSERT_BEFORE -->
     </channel>
 </rss>

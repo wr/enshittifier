@@ -7,11 +7,11 @@ __pycache__/
 # macOS Finder cruft
 .DS_Store
 
-# Stray build artifacts (the legacy Tk/py2app installer was removed,
-# but these directory patterns can still appear from local experimentation).
+# Build outputs (Xcode + create-dmg)
 build/
 dist/
-Enshittifier.dmg
+Enshittifier-dev.dmg
+Enshittifier-*.dmg
 
 # SwiftPM / Xcode
 .build/
@@ -22,6 +22,3 @@ Enshittifier.dmg
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcuserstate
-installer-swift/build/
-Enshittifier-native.dmg
-Enshittifier-*.dmg

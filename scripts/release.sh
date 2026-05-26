@@ -34,7 +34,7 @@
 #       xcrun notarytool store-credentials enshittifier-notarize \
 #           --apple-id <appleid> --team-id $APPLE_TEAM_ID
 #   * Sparkle EdDSA private key in keychain (idempotent):
-#       installer-swift/bin/generate_keys
+#       bin/generate_keys
 #     (The matching PUBLIC key is committed at SUPublicEDKey in project.yml.
 #     Never regenerate without coordinating — losing the private key locks
 #     out auto-update for everyone on a prior version.)
@@ -53,9 +53,8 @@ fi
 TAG="v$VERSION"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_ROOT="$(dirname "$INSTALLER_DIR")"
-BUILD_DIR="$INSTALLER_DIR/build"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+BUILD_DIR="$REPO_ROOT/build"
 DD_DIR="$BUILD_DIR/dd"
 APP_NAME="Enshittifier"
 
@@ -63,7 +62,7 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-enshittifier-notarize}"
 SIGN_IDENTITY="${SIGN_IDENTITY:-Developer ID Application: Wells Riley (P3V9EZ525M)}"
 APPCAST_URL="https://wr.github.io/enshittifier/appcast.xml"
 
-cd "$INSTALLER_DIR"
+cd "$REPO_ROOT"
 
 require() {
     if [[ -z "${!1:-}" ]]; then echo "error: $1 is not set" >&2; exit 1; fi
@@ -99,8 +98,8 @@ if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>
     echo "             --apple-id <id> --team-id $APPLE_TEAM_ID" >&2
     exit 1
 fi
-if ! [[ -x "$INSTALLER_DIR/bin/sign_update" ]]; then
-    echo "error: $INSTALLER_DIR/bin/sign_update missing or not executable" >&2
+if ! [[ -x "$REPO_ROOT/bin/sign_update" ]]; then
+    echo "error: $REPO_ROOT/bin/sign_update missing or not executable" >&2
     exit 1
 fi
 
@@ -193,7 +192,7 @@ codesign --force --options runtime --timestamp \
 # --- final app re-sign ----------------------------------------------------
 echo "==> Re-signing app shell"
 codesign --force --options runtime --timestamp \
-    --entitlements "$INSTALLER_DIR/Resources/Enshittifier.entitlements" \
+    --entitlements "$REPO_ROOT/Resources/Enshittifier.entitlements" \
     --sign "$SIGN_IDENTITY" "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
@@ -231,7 +230,7 @@ xcrun stapler validate "$DMG_PATH"
 
 # --- Sparkle signature ----------------------------------------------------
 echo "==> Signing DMG with Sparkle EdDSA"
-SIG_OUTPUT="$("$INSTALLER_DIR/bin/sign_update" "$DMG_PATH")"
+SIG_OUTPUT="$("$REPO_ROOT/bin/sign_update" "$DMG_PATH")"
 echo "$SIG_OUTPUT"
 ED_SIGNATURE="$(echo "$SIG_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
 DMG_LENGTH="$(echo "$SIG_OUTPUT" | sed -n 's/.*length="\([^"]*\)".*/\1/p')"
@@ -246,9 +245,9 @@ echo "==> Committing version bump and tagging $TAG"
 # CURRENT_PROJECT_VERSION literals; include it so a fresh clone opens in
 # Xcode at the released version without needing xcodegen installed.
 git -C "$REPO_ROOT" add \
-    installer-swift/project.yml \
-    installer-swift/Resources/Info.plist \
-    installer-swift/Enshittifier.xcodeproj/project.pbxproj
+    project.yml \
+    Resources/Info.plist \
+    Enshittifier.xcodeproj/project.pbxproj
 git -C "$REPO_ROOT" commit -m "Release ${TAG}"
 git -C "$REPO_ROOT" tag -a "$TAG" -m "$TAG"
 git -C "$REPO_ROOT" push origin HEAD "$TAG"
@@ -290,11 +289,12 @@ else
     git -C "$REPO_ROOT" worktree add --detach "$PAGES_WT"
     git -C "$PAGES_WT" checkout --orphan gh-pages
     git -C "$PAGES_WT" rm -rf . >/dev/null 2>&1 || true
-    cp "$INSTALLER_DIR/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
+    cp "$REPO_ROOT/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
 fi
 if [[ ! -f "$PAGES_WT/appcast.xml" ]]; then
-    cp "$INSTALLER_DIR/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
+    cp "$REPO_ROOT/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
 fi
+
 
 PUB_DATE="$(date -u +"%a, %d %b %Y %H:%M:%S +0000")"
 NEW_ITEM=$(cat <<EOF

@@ -20,24 +20,24 @@ enum PatcherError: LocalizedError {
     }
 }
 
-/// Front door for patching a font file. Phase 1: delegates to the bundled
-/// Python patcher (full functionality). The native Swift table patchers
-/// in this directory exist for incremental porting; they're exercised by
-/// `Patcher.shared.patchWithSwiftOnly(url:)` (test/debug path only).
+/// Front door for patching a font file. Drives the bundled Python
+/// patching engine via `PythonPatcher`. The Swift table patchers in this
+/// directory are exploratory scaffolding for a possible future native
+/// port — not wired into the production path; exercised only by
+/// `Patcher.shared.patchWithSwiftOnly(url:)` for isolated testing.
 final class Patcher: Sendable {
     static let shared = Patcher()
     private init() {}
 
-    /// Production patch path. Currently shells out to the bundled Python
-    /// patcher so the app produces correct output today.
+    /// Production patch path.
     func patch(url: URL) throws {
-        try PythonFallbackPatcher().patch(url: url)
+        try PythonPatcher().patch(url: url)
     }
 
-    /// Debug/test path — runs only the native Swift table edits. Does not
-    /// substitute "ai" with the poop glyph (glyph drawing + GSUB
-    /// compilation aren't ported yet); useful for verifying the Swift
-    /// cmap/name patchers in isolation.
+    /// Test-only path that runs the in-Swift table patchers in isolation.
+    /// Does not substitute "ai" with the poop glyph (glyph drawing + GSUB
+    /// compilation aren't ported); useful only for unit-testing the
+    /// cmap/name parsers.
     func patchWithSwiftOnly(url: URL) throws {
         var data = try Data(contentsOf: url)
         data = try CmapTablePatcher.addPoopMapping(in: data)

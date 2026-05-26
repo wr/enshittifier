@@ -1,13 +1,11 @@
 import Foundation
 
-/// Phase 1: read-only name-table inspector.
-///
-/// The real alias write (add nameID 1 + nameID 16 records on alternate
-/// English language IDs, mirroring `add_family_aliases` in
-/// `enshittifier.py`) is a Phase 2 task — same reason as
-/// `CmapTablePatcher`: writing requires re-laying out the table's
-/// string heap, recomputing checksums, and either rewriting in place or
-/// appending. The Phase 1 deliverable is the read scaffolding.
+/// Read-only name-table inspector — exploratory scaffolding paralleling
+/// `CmapTablePatcher`. Not used by the production path; the shipped
+/// patcher is the bundled Python engine. The Swift alias-write side
+/// (add nameID 1 + nameID 16 records on alternate English language IDs,
+/// mirroring `add_family_aliases` in `engine/enshittifier.py`) isn't
+/// implemented.
 enum NameTablePatcher {
     struct NameRecord {
         let platformID: UInt16
@@ -59,7 +57,7 @@ enum NameTablePatcher {
         }
 
         // Format 1 has language tag records after the name records; not
-        // needed for Phase 1 read-only path.
+        // needed by the read-only path.
         _ = format
 
         return records
@@ -68,7 +66,7 @@ enum NameTablePatcher {
     static func addSpacelessAlias(in data: Data) throws -> Data {
         _ = try read(in: data)
         throw Failure.notImplemented(
-            "Swift name-table write path lands in Phase 2. Falling back to Python."
+            "Swift name-table write path is not implemented; use PythonPatcher."
         )
     }
 

@@ -1,16 +1,10 @@
 import Foundation
 
-/// Phase 1: read-only cmap inspector.
-///
-/// The real patch (append a format-12 subtable mapping U+1F4A9 → glyph "poop")
-/// requires writing a new cmap table, recomputing checksums, and either
-/// rewriting the table directory in place or appending the table at the end
-/// of the file with an updated offset. That work, plus correct parsing of
-/// the source's existing format-4 / format-6 / format-12 subtables, lands
-/// in a follow-up Linear issue (Phase 2 patcher port).
-///
-/// For now this file exists so the Swift project structure is in place and
-/// the bones of cmap parsing are ready for the next phase to build on.
+/// Read-only cmap inspector — exploratory Swift scaffolding for a possible
+/// future native port of the patcher. Not used by the production path;
+/// the shipped patcher is the bundled Python engine. The Swift write side
+/// (append a format-12 subtable mapping U+1F4A9 → glyph "poop", recompute
+/// checksums, lay the table back in) isn't implemented.
 enum CmapTablePatcher {
     struct CmapSummary {
         let numSubtables: Int
@@ -46,15 +40,14 @@ enum CmapTablePatcher {
         return CmapSummary(numSubtables: numSubtables, subtableFormats: formats)
     }
 
-    /// Public stub for the Phase 1 native patch path. Throws to signal
-    /// that the real write isn't implemented yet — callers should fall
-    /// back to the Python path.
+    /// Throws — Swift-side cmap writing is not implemented; callers should
+    /// route through the Python engine (`PythonPatcher`).
     static func addPoopMapping(in data: Data) throws -> Data {
         // Validate that we can at least parse the source's cmap; this
         // catches malformed fonts early and exercises the read path.
         _ = try summarize(in: data)
         throw Failure.notImplemented(
-            "Swift cmap write path lands in Phase 2. Falling back to Python."
+            "Swift cmap write path is not implemented; use PythonPatcher."
         )
     }
 

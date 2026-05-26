@@ -34,10 +34,9 @@ targets:
       # as `folder.iconcomposer.icon` so actool processes it as the app
       # icon asset. Active set is selected via ASSETCATALOG_COMPILER_APPICON_NAME.
       - path: Resources/AppIcon.icon
-      # The patcher CLI lives at the repo root so `python3 enshittifier.py …`
-      # keeps working without descending into installer-swift/. Reference it
-      # from here so xcodebuild copies it into Contents/Resources/.
-      - path: ../enshittifier.py
+      # The bundled Python patching engine. Copied into Contents/Resources/
+      # at build time; the app shells out to it via PythonPatcher.
+      - path: engine/enshittifier.py
         buildPhase: resources
     info:
       path: Resources/Info.plist

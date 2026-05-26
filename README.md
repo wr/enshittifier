@@ -1,111 +1,40 @@
-# enshittifier
+# Enshittifier
 
-Patches any TTF or OTF font so the standalone word **"ai"** (in any case
-combination — `ai`, `AI`, `Ai`, `aI`) is rendered as 💩. Untouched everywhere
-else: `painter`, `rain`, `said`, `email`, `naïve`, `Hawaii`, etc.
+Mac app that patches any TTF, OTF, WOFF, or WOFF2 font so the standalone
+word **"ai"** (in any case combination — `ai`, `AI`, `Ai`, `aI`) is
+rendered as 💩. Untouched everywhere else: `painter`, `rain`, `said`,
+`email`, `naïve`, `Hawaii`, etc.
 
-## Installer
+Font Book–style grid of every installed family, multi-select install /
+restore, signed + notarized DMGs with Sparkle in-app auto-updates.
 
-`installer-swift/` is a native SwiftUI macOS app — Font Book–style grid
-of every installed family, multi-select install/restore, signed +
-notarized DMGs with Sparkle in-app auto-updates.
+## Install
 
 - **Download the latest signed build** from the
   [Releases page](https://github.com/wr/enshittifier/releases).
-- **Build from source:** `bash installer-swift/scripts/build-dev.sh`
-  produces `installer-swift/build/Enshittifier.app` (adhoc-signed) +
-  `Enshittifier-native.dmg` at the repo root. Requires `xcodegen` and
-  `create-dmg` (`brew install xcodegen create-dmg`).
-- **Cut a signed release** (developer only): `bash
-  installer-swift/scripts/release.sh X.Y.Z` — bumps versions, codesigns,
-  notarizes, staples, EdDSA-signs, publishes to GitHub Releases, prepends
-  to the Sparkle appcast on `gh-pages`. See
-  `installer-swift/sparkle/README.md` for the per-machine setup.
-
-Phase 1 of the installer shells out to bundled `enshittifier.py` for the
-actual patching; Phase 2+ ports the patcher tables to Swift incrementally.
-
-## Usage
-
-```bash
-python3 enshittifier.py path/to/Font.ttf       # or .otf
-```
-
-By default the script **patches the font in place**, leaving its original
-name intact (so the OS treats the patched font as the same font). The
-original is moved to `Font.ttf.bak` first.
-
-If `Font.ttf.bak` already exists, the script refuses to overwrite it. Move
-or delete that file, or pass `--no-backup-yes-i-am-an-idiot` to skip the
-backup entirely.
-
-## Options
-
-```text
--o OUT.ttf                          Write to a different path instead of
-                                    overwriting the input. Skips the .bak step.
---demo                              Also write a demo.html next to the output.
---svg PATH.svg                      Use a custom SVG as the glyph source.
---alias NAME                        Add an additional family name to match.
-                                    Repeatable. See "Aliases" below.
---no-alias                          Disable the automatic no-spaces alias.
---no-backup-yes-i-am-an-idiot       When overwriting in place, skip the .bak.
--q, --quiet                         Suppress all informational output (stdout).
-                                    Errors still go to stderr.
-```
-
-## Aliases
-
-The same font often gets referenced by different family-name strings on
-the web. For example, Inter's variable file is named "Inter Variable" but
-many sites use `font-family: "InterVariable"` (no space).
-
-**By default**, if the font's family name contains spaces, enshittifier
-automatically adds a no-spaces alias. So patching `Inter Variable` makes
-the file match both `"Inter Variable"` and `"InterVariable"` with no flags.
-Pass `--no-alias` to skip this.
-
-**`--alias`** adds further explicit aliases on top of (or instead of) the
-auto one:
-
-```bash
-python3 enshittifier.py InterVariable.ttf --alias "Inter"
-# Now matches "Inter Variable", "InterVariable", and "Inter".
-```
-
-The mechanism: each alias is written into the `name` table at an
-additional language ID. Most font matchers index a font under every
-distinct family-name string they find across language records. Caveats:
-
-- **Reliable:** macOS Core Text, Chrome/Edge/Safari, iOS, modern Linux.
-- **Mixed:** older Windows GDI consumers may only read en-US (the original
-  family name).
-- **Don't alias to names that already exist on your system.** OS-level
-  font matching becomes ambiguous; you'll get whichever the font cache
-  picked first.
-
-For 100% reliable matching across many names, save the font multiple times
-with each alias as the primary family name. That's two files instead of
-one, but every consumer will agree on what each is called.
-
-## Notes
-
-The `--svg` flag accepts any SVG with one or more `<path>` elements. All
-`d` attributes are concatenated; subpaths can be filled or holes (non-zero
-winding rule applies, same as in browsers). Y is flipped automatically.
-
-Requires `fonttools` and `svgpathtools` (`pip install fonttools svgpathtools`).
+- **Build from source:** `bash scripts/build-dev.sh` produces
+  `build/Enshittifier.app` (adhoc-signed) and `Enshittifier-dev.dmg` at
+  the repo root. Requires `xcodegen` and `create-dmg`
+  (`brew install xcodegen create-dmg`).
+- **Cut a signed release** (developer only): `bash scripts/release.sh
+  X.Y.Z` — bumps versions, codesigns, notarizes, staples, EdDSA-signs,
+  publishes to GitHub Releases, prepends to the Sparkle appcast on
+  `gh-pages`. See `sparkle/README.md` for the per-machine setup.
 
 ## How it works
 
-1. **Adds a glyph** — a monochrome poop silhouette (parsed from an embedded
-   SVG, or from your `--svg` file) mapped to U+1F4A9. For TTF, cubics are
-   converted to quadratics via cu2qu and written to the `glyf` table. For
-   OTF, cubics go directly into `CFF ` as Type 2 CharStrings.
-2. **Adds a format-12 cmap subtable** — required because U+1F4A9 lives in the
-   supplementary plane, beyond what the standard format-4 subtables can encode.
-3. **Compiles GSUB lookups** in `calt` and `liga` features. The core rule is a
-   chained contextual ligature with two `ignore` guards:
+The patcher engine lives at `engine/enshittifier.py` and is bundled
+inside the app under `Contents/Resources/`. Per font, it:
+
+1. **Adds a glyph** — a monochrome poop silhouette (parsed from an
+   embedded SVG) mapped to U+1F4A9. For TTF, cubics are converted to
+   quadratics via cu2qu and written to the `glyf` table. For OTF, cubics
+   go directly into `CFF ` as Type 2 CharStrings.
+2. **Adds a format-12 cmap subtable** — required because U+1F4A9 lives
+   in the supplementary plane, beyond what the standard format-4
+   subtables can encode.
+3. **Compiles GSUB lookups** in `calt` and `liga` features. The core
+   rule is a chained contextual ligature with two `ignore` guards:
 
     ```
     lookup ai_to_poop {
@@ -122,40 +51,41 @@ Requires `fonttools` and `svgpathtools` (`pip install fonttools svgpathtools`).
     } calt;
     ```
 
-   `@letter` is built dynamically from the font's cmap (Basic Latin + Latin-1
-   Supplement + Latin Extended-A letters). The two `ignore` rules suppress the
-   substitution when "ai" sits next to another letter on either side.
+   `@letter` is built dynamically from the font's cmap (Basic Latin +
+   Latin-1 Supplement + Latin Extended-A letters). The two `ignore`
+   rules suppress the substitution when "ai" sits next to another letter
+   on either side.
 
 4. **Saves atomically.** The patched font is written to a sibling temp
-   file first, then the original is moved to `.bak` (unless skipped),
-   then the temp is renamed to the final destination. If anything fails
-   before the rename step, the original is untouched.
+   file first, then the original is moved to `.bak`, then the temp is
+   renamed to the final destination. If anything fails before the rename
+   step, the original is untouched.
 
 ## Caveats
 
-- **CFF2 (variable OTF) not yet supported.** Static TTF (glyf) and static OTF
-  (CFF) both work. CFF2 uses a different charstring format and would need
-  different plumbing.
-- **Existing GSUB is extended, not replaced.** All other features (fractions,
-  small caps, old-style figures, etc.) are preserved. The enshittification
-  lookups are appended to the font's existing `calt` and `liga` feature
-  records. GPOS (kerning) is preserved.
-- **Monochrome glyph.** No COLR/CPAL/SVG color tables. The poop renders in
-  whatever color the surrounding text uses.
-- **Lowercase Latin only.** The substitution targets Basic Latin `a/A/i/I`
-  — Cyrillic, Greek, fullwidth, etc. don't trigger.
+- **CFF2 (variable OTF) not yet supported.** Static TTF (`glyf`) and
+  static OTF (`CFF `) both work. CFF2 uses a different charstring format
+  and would need different plumbing.
+- **Existing GSUB is extended, not replaced.** All other features
+  (fractions, small caps, old-style figures, etc.) are preserved. The
+  enshittification lookups are appended to the font's existing `calt`
+  and `liga` feature records. GPOS (kerning) is preserved.
+- **Monochrome glyph.** No COLR/CPAL/SVG color tables. The poop renders
+  in whatever color the surrounding text uses.
+- **Lowercase Latin only.** The substitution targets Basic Latin
+  `a/A/i/I` — Cyrillic, Greek, fullwidth, etc. don't trigger.
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0**.
-See [LICENSE](LICENSE) for the full text. In short: source-available, copyleft;
-if you run a modified version as a network service, you must publish the
-modified source.
+This project is licensed under the **GNU Affero General Public License
+v3.0**. See [LICENSE](LICENSE) for the full text. In short:
+source-available, copyleft; if you run a modified version as a network
+service, you must publish the modified source.
 
 ### Fonts you patch
 
-Patch your own fonts. Don't redistribute patched copies of fonts you aren't
-licensed to redistribute — the patched file carries the original font's
-name, metadata, and license terms, so it inherits the original's
-restrictions. Many commercial font EULAs explicitly prohibit modification or
-the creation of derivative works.
+Patch your own fonts. Don't redistribute patched copies of fonts you
+aren't licensed to redistribute — the patched file carries the original
+font's name, metadata, and license terms, so it inherits the original's
+restrictions. Many commercial font EULAs explicitly prohibit
+modification or the creation of derivative works.

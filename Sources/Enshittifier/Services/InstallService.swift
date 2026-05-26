@@ -22,9 +22,8 @@ enum InstallService {
     ///  - System fonts:   copy to ~/Library/Fonts/, patch the copy
     ///  - User fonts:     patch original in place
     ///
-    /// Patching itself is delegated to Patcher.patch(url:), which decides
-    /// internally between the (incomplete) Swift native path and the
-    /// Python fallback.
+    /// Patching itself is delegated to `Patcher.patch(url:)`, which drives
+    /// the bundled Python patching engine.
     static func install(
         styles: [FontStyle],
         progress: @escaping @Sendable (InstallUpdate) -> Void

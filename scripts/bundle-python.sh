@@ -24,8 +24,8 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
-CACHE_DIR="$INSTALLER_DIR/build/cache"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+CACHE_DIR="$REPO_ROOT/build/cache"
 
 # Pin to a specific python-build-standalone release. Bumping these requires
 # checking the URL still resolves and that pip can still install the deps.
@@ -63,7 +63,7 @@ rm -rf "$VENV_DIR"
 mkdir -p "$VENV_DIR"
 # strip-components=1 drops the tarball's top-level `python/` dir so the
 # layout lands directly under Contents/Resources/venv/ — matches what
-# PythonFallbackPatcher expects (Contents/Resources/venv/bin/python3).
+# PythonPatcher expects (Contents/Resources/venv/bin/python3).
 tar -xzf "$PYBS_CACHE" -C "$VENV_DIR" --strip-components=1
 
 echo "==> Installing fontTools + svgpathtools + cu2qu..."
