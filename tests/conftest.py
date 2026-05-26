@@ -27,6 +27,7 @@ def patched_font(minimal_ttf_path, tmp_path):
         no_alias=False,
         alias=[],
         demo=False,
+        quiet=True,
     )
     patch_one(src, args, None, None)
 

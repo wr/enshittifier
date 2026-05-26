@@ -1,0 +1,112 @@
+{
+  "fill" : {
+    "automatic-gradient" : "display-p3:0.37256,0.28638,0.22351,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill" : {
+            "automatic-gradient" : "display-p3:0.33262,0.25134,0.11829,1.00000"
+          },
+          "glass" : false,
+          "image-name" : "Union 2.svg",
+          "name" : "Union 2",
+          "position" : {
+            "scale" : 8,
+            "translation-in-points" : [
+              -130,
+              130
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "display-p3:0.82254,0.76850,0.72557,1.00000"
+          },
+          "image-name" : "Rectangle 1.svg",
+          "name" : "Rectangle 1",
+          "position" : {
+            "scale" : 8,
+            "translation-in-points" : [
+              -68,
+              0
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "solid" : "display-p3:0.83496,0.77686,0.73340,1.00000"
+          },
+          "image-name" : "Rectangle 3 3.svg",
+          "name" : "Rectangle 3 3",
+          "position" : {
+            "scale" : 8,
+            "translation-in-points" : [
+              419.9294049617529,
+              0
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "solid" : "display-p3:0.65576,0.54395,0.45801,1.00000"
+          },
+          "image-name" : "Rectangle 2 3.svg",
+          "name" : "Rectangle 2 3",
+          "position" : {
+            "scale" : 8,
+            "translation-in-points" : [
+              419.9294049617529,
+              340
+            ]
+          }
+        },
+        {
+          "fill" : {
+            "solid" : "extended-gray:1.00000,1.00000"
+          },
+          "image-name" : "Rectangle 4 3.svg",
+          "name" : "Rectangle 4 3",
+          "position" : {
+            "scale" : 8,
+            "translation-in-points" : [
+              419.9294049617529,
+              -340
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "name" : "Group",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
