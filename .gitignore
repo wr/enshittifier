@@ -4,8 +4,18 @@ __pycache__/
 *.pyo
 .pytest_cache/
 
+# macOS Finder cruft
+.DS_Store
+
 # py2app build artifacts
 build/
 dist/
 installer/build_work/
 Enshittifier.dmg
+
+# SwiftPM / Xcode
+.build/
+.swiftpm/
+*.xcodeproj
+installer-swift/build/
+Enshittifier-native.dmg

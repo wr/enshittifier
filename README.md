@@ -4,6 +4,13 @@ Patches any TTF or OTF font so the standalone word **"ai"** (in any case
 combination — `ai`, `AI`, `Ai`, `aI`) is rendered as 💩. Untouched everywhere
 else: `painter`, `rain`, `said`, `email`, `naïve`, `Hawaii`, etc.
 
+## Installers
+
+Two GUI installers live in this repo:
+
+- `installer/` — the original Tk-based Python installer, built into a `.app` via py2app. Run `bash installer/build_dmg.sh` to produce `Enshittifier.dmg`.
+- `installer-swift/` — **native SwiftUI rewrite, in progress (W-123)**. SwiftPM project; build with `bash installer-swift/build-app.sh` to produce `Enshittifier.app` + `Enshittifier-native.dmg`. Phase 1: native UI with Core Text font-family grouping; the patcher itself still delegates to bundled `enshittifier.py` (Phase 2+ ports the patcher to Swift incrementally).
+
 ## Usage
 
 ```bash

@@ -9,7 +9,7 @@ from tests.helpers import build_font_at
 
 
 def _args(**kwargs):
-    defaults = dict(output=None, no_backup=True, no_alias=False, alias=[], demo=False)
+    defaults = dict(output=None, no_backup=True, no_alias=False, alias=[], demo=False, quiet=True)
     defaults.update(kwargs)
     return types.SimpleNamespace(**defaults)
 
