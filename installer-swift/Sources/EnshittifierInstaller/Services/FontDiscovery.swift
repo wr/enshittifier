@@ -4,8 +4,7 @@ import CoreText
 /// Walks the user + system font directories, reads family/style metadata
 /// via Core Text, and groups results into FontFamily values.
 ///
-/// Mirrors the discovery behavior of `installer/enshittifier_installer.py`:
-/// - recursive (post W-124) so /System/Library/Fonts/Supplemental/ is covered
+/// - recursive — so /System/Library/Fonts/Supplemental/ is covered
 /// - dedupes by (family, style) with user winning over system (CoreText
 ///   prefers user copies, so shadowing the system one is redundant)
 /// - excludes SF Pro / SF Compact / SFNS / .AppleSystemUIFont (loaded by
