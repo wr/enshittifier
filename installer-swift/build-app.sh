@@ -163,13 +163,35 @@ if [[ -d "$ICON_SOURCE" ]]; then
     fi
 fi
 
-# ---- Python venv with fontTools (unchanged) -----------------------------
-echo "==> Bundling Python venv with fontTools..."
+# ---- Python (python-build-standalone) with fontTools --------------------
+# We can't bundle a `python3 -m venv` virtualenv because its bin/python3
+# is a symlink to the host's Homebrew/system Python — a dangling symlink
+# outside the .app, which Apple's notary rejects and `codesign --deep
+# --strict` won't accept either. python-build-standalone is a relocatable
+# CPython distribution with all libs inside; the layout matches a venv's
+# (`bin/python3`, `lib/python3.X/...`) so PythonFallbackPatcher's lookup
+# at `Contents/Resources/venv/bin/python3` keeps working unchanged.
+PYBS_VERSION="3.13.0"
+PYBS_DATE="20241016"
+PYBS_ARCH="aarch64-apple-darwin"
+PYBS_TARBALL="cpython-${PYBS_VERSION}+${PYBS_DATE}-${PYBS_ARCH}-install_only_stripped.tar.gz"
+PYBS_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PYBS_DATE}/${PYBS_TARBALL}"
+PYBS_CACHE="$BUILD_DIR/cache/${PYBS_TARBALL}"
+mkdir -p "$(dirname "$PYBS_CACHE")"
+if [[ ! -f "$PYBS_CACHE" ]]; then
+    echo "==> Downloading python-build-standalone ${PYBS_VERSION} (${PYBS_ARCH})..."
+    curl -fL --retry 3 -o "$PYBS_CACHE.tmp" "$PYBS_URL"
+    mv "$PYBS_CACHE.tmp" "$PYBS_CACHE"
+fi
+echo "==> Bundling embedded Python ${PYBS_VERSION} with fontTools..."
 VENV_DIR="$APP_DIR/Contents/Resources/venv"
 rm -rf "$VENV_DIR"
-python3 -m venv "$VENV_DIR"
-"$VENV_DIR/bin/pip" install --quiet --upgrade pip
-"$VENV_DIR/bin/pip" install --quiet fonttools svgpathtools cu2qu
+mkdir -p "$VENV_DIR"
+# strip-components=1 drops the tarball's top-level `python/` dir so the
+# layout lands directly under Contents/Resources/venv/.
+tar -xzf "$PYBS_CACHE" -C "$VENV_DIR" --strip-components=1
+"$VENV_DIR/bin/python3" -m pip install --quiet --no-warn-script-location \
+    fonttools svgpathtools cu2qu
 
 # ---- Info.plist ---------------------------------------------------------
 ICON_KEYS=""
@@ -287,7 +309,30 @@ if ! [[ -x "$SPARKLE_ART/sign_update" ]]; then
     exit 1
 fi
 
-# --- 1. codesign Sparkle helpers (deepest-first), then framework, then app
+# --- 1. codesign every Mach-O inside the embedded Python (deepest-first).
+#    The embedded Python ships ~hundreds of .so / .dylib files plus the
+#    interpreter binary; notarization requires every Mach-O to carry its
+#    own signature with the hardened runtime flag.
+echo "==> Codesigning embedded Python binaries"
+# Sort by path depth desc so children sign before their parent dirs (not
+# strictly required for individual Mach-Os, but mirrors the order Apple's
+# tools expect for nested bundles).
+{
+    find "$VENV_DIR" -type f -name "*.dylib"
+    find "$VENV_DIR" -type f -name "*.so"
+    find "$VENV_DIR/bin" -type f -perm +111
+    # Some bundled libs live as .dyld or are unsuffixed Mach-Os; catch any
+    # remaining Mach-O files by magic check.
+    find "$VENV_DIR" -type f \! -name "*.dylib" \! -name "*.so" \! -path "*/bin/*" \
+        -exec sh -c 'head -c 4 "$1" | grep -q "^\xcf\xfa\xed\xfe\|^\xca\xfe\xba\xbe"' _ {} \; -print 2>/dev/null || true
+} | sort -u | while IFS= read -r mach_o; do
+    [[ -f "$mach_o" ]] || continue
+    codesign --force --options runtime --timestamp \
+        --sign "$SIGN_IDENTITY" "$mach_o" 2>/dev/null || \
+        echo "  ! skipped (not Mach-O?): $mach_o" >&2
+done
+
+# --- 2. codesign Sparkle helpers (deepest-first), then framework, then app
 echo "==> Codesigning Sparkle helpers"
 SPARKLE_FW="$APP_DIR/Contents/Frameworks/Sparkle.framework"
 # Inner XPC services + Autoupdate need their own signatures with the runtime flag.
