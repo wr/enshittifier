@@ -37,12 +37,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: gh-pages
-      # Pinned to explicit tags rather than major-version aliases — the
-      # @v5 alias kept resolving to a SHA that codeload.github.com 404'd
-      # on, blocking every Pages deploy until pinned.
-      - uses: actions/configure-pages@v5.0.0
-      - uses: actions/upload-pages-artifact@v3.0.1
+      # Pin to the *previous* major (v4 of configure-pages, v3 of upload,
+      # v4 of deploy). The v5 family's resolved SHAs were 404'ing on the
+      # Actions runner mirror at codeload — pinning to known-cached
+      # older SHAs sidesteps the issue. Bump back up when the mirror
+      # catches up.
+      - uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d   # v4.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3.0.1
         with:
           path: .
       - id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e   # v4.0.5
