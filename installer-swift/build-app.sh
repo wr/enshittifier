@@ -332,15 +332,45 @@ echo "==> Codesigning embedded Python binaries"
         echo "  ! skipped (not Mach-O?): $mach_o" >&2
 done
 
-# --- 2. codesign Sparkle helpers (deepest-first), then framework, then app
+# --- 2. codesign Sparkle. Order matters: every Mach-O inside a nested
+#    bundle has to be signed BEFORE the wrapping bundle, otherwise the
+#    bundle's seal still references the upstream Sparkle Project adhoc
+#    signature and notarization rejects it. The official Sparkle docs
+#    spell this out under "Code Signing".
 echo "==> Codesigning Sparkle helpers"
 SPARKLE_FW="$APP_DIR/Contents/Frameworks/Sparkle.framework"
-# Inner XPC services + Autoupdate need their own signatures with the runtime flag.
-find "$SPARKLE_FW/Versions/Current" -name "*.xpc" -o -name "Autoupdate" -o -name "Updater.app" | \
-while IFS= read -r helper; do
-    codesign --force --options runtime --timestamp \
-        --sign "$SIGN_IDENTITY" "$helper"
+SPARKLE_VER="$SPARKLE_FW/Versions/Current"
+
+# 2a. Inner binaries inside each helper bundle (Mach-O at Contents/MacOS/<name>)
+for bundle in \
+    "$SPARKLE_VER/Updater.app" \
+    "$SPARKLE_VER/XPCServices/Downloader.xpc" \
+    "$SPARKLE_VER/XPCServices/Installer.xpc"; do
+    [[ -d "$bundle" ]] || continue
+    inner_bin="$bundle/Contents/MacOS/$(basename "$bundle" | sed 's/\.[^.]*$//')"
+    if [[ -f "$inner_bin" ]]; then
+        codesign --force --options runtime --timestamp \
+            --sign "$SIGN_IDENTITY" "$inner_bin"
+    fi
 done
+
+# 2b. Bare-Mach-O helper (no enclosing bundle)
+if [[ -f "$SPARKLE_VER/Autoupdate" ]]; then
+    codesign --force --options runtime --timestamp \
+        --sign "$SIGN_IDENTITY" "$SPARKLE_VER/Autoupdate"
+fi
+
+# 2c. The helper bundle wrappers themselves
+for bundle in \
+    "$SPARKLE_VER/XPCServices/Downloader.xpc" \
+    "$SPARKLE_VER/XPCServices/Installer.xpc" \
+    "$SPARKLE_VER/Updater.app"; do
+    [[ -d "$bundle" ]] || continue
+    codesign --force --options runtime --timestamp \
+        --sign "$SIGN_IDENTITY" "$bundle"
+done
+
+# 2d. Finally, the framework itself (signs Versions/Current/Sparkle)
 codesign --force --options runtime --timestamp \
     --sign "$SIGN_IDENTITY" "$SPARKLE_FW"
 
