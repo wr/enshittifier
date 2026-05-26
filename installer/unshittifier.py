@@ -162,7 +162,7 @@ class UnshittifierApp(tk.Tk):
     def _build_ui(self):
         pad = {"padx": 12, "pady": 6}
 
-        header = tk.Label(self, text="Unshittifier", font=("Helvetica", 18, "bold"))
+        header = tk.Label(self, text="Unshittifier", font=("", 18, "bold"))
         header.pack(**pad, anchor="w")
 
         note = tk.Label(
@@ -209,7 +209,7 @@ class UnshittifierApp(tk.Tk):
         btn_frame.pack(padx=12, pady=(0, 12), anchor="e")
         self._restore_btn = tk.Button(
             btn_frame, text="Restore Selected",
-            font=("Helvetica", 13, "bold"),
+            font=("", 13, "bold"),
             command=self._on_restore,
             bg="#e84a1a", fg="white", relief="flat",
             padx=16, pady=8,
@@ -252,7 +252,7 @@ class UnshittifierApp(tk.Tk):
             label_text = f"{desc['backup_path'].name}  [{loc_labels[desc['location']]}]"
             fg = "#c05000" if desc["location"] == "system" else "#333"
 
-            lbl = tk.Label(frame, text=label_text, anchor="w", fg=fg, font=("Helvetica", 11))
+            lbl = tk.Label(frame, text=label_text, anchor="w", fg=fg, font=("", 11))
             lbl.pack(side="left")
             lbl.bind("<Button-1>", lambda e, v=var: v.set(not v.get()))
 

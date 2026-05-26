@@ -155,6 +155,19 @@ def fix_variable_tables(font: TTFont, verbose: bool = True):
             print("  + HVAR dropped (renderer will recompute from gvar)")
 
 
+def drop_stale_per_glyph_tables(font: TTFont, verbose: bool = True):
+    """Drop optional per-glyph cache tables that would carry stale data
+    after a glyph is appended. fontTools refuses to compile them when
+    they're missing an entry for the new glyph (e.g. hdmx fails with
+    KeyError: 'poop'). All of these tables are caches/hints that
+    renderers can do without — they're safely droppable."""
+    for tag in ("hdmx", "LTSH", "VDMX"):
+        if tag in font:
+            del font[tag]
+            if verbose:
+                print(f"  + {tag} dropped (stale after glyph addition)")
+
+
 def add_poop_cff(font: TTFont, upm: int, svg_path, viewbox, verbose: bool = True):
     """Add the poop glyph to a CFF-based (OTF) font."""
     from fontTools.pens.t2CharStringPen import T2CharStringPen
@@ -276,6 +289,25 @@ def add_family_aliases(font: TTFont, aliases: list[str], verbose: bool = True):
         sys.exit(f"Too many aliases: max {len(LANG_IDS)} supported per font.")
 
     name_table = font["name"]
+
+    # Before we write nameID 16 alias records at non-en-US languages, make
+    # sure en-US nameID 16 carries the original family name. Otherwise the
+    # only Typographic Family record ends up being our alias, and Core Text
+    # then reports the alias as the *primary* family — which makes a
+    # patched shadow (a user-dir copy of a multi-word family name, e.g.
+    # "Family Name.ttf" reporting "FamilyName") no longer dedupe against
+    # the unpatched system font (reporting "Family Name"). We only fill it
+    # in when missing so we don't clobber a font's intentionally distinct
+    # Typographic Family (e.g. a "Bold" subfamily whose typographic family
+    # name intentionally differs from its WWS family name).
+    primary = get_primary_family_name(font)
+    has_en_us_id16 = any(
+        r.nameID == 16 and r.platformID == 3 and r.langID == 0x0409
+        for r in name_table.names
+    )
+    if primary and not has_en_us_id16:
+        name_table.setName(primary, 16, 3, 1, 0x0409)
+
     for alias, lang_id in zip(aliases, LANG_IDS):
         # nameID 1 = Family Name (legacy/WWS)
         name_table.setName(alias, 1, 3, 1, lang_id)
@@ -644,6 +676,9 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
     # 2b. Fix up variable-font tables if present
     fix_variable_tables(font, verbose=verbose)
 
+    # 2c. Drop optional per-glyph cache tables that are now stale (hdmx, LTSH, VDMX)
+    drop_stale_per_glyph_tables(font, verbose=verbose)
+
     # 3. Update cmap
     update_cmap(font)
     if verbose:
@@ -664,6 +699,17 @@ def patch_one(in_path: Path, args, custom_svg, custom_viewbox):
     old_feat_idx_map: dict[int, int] = {}
     # Saved script/langsys structure: list of (script_tag, default_ls_indices, [(ls_tag, ls_indices)])
     saved_scripts: list = []
+
+    # Some fonts (e.g. Noem9 Studio's Ballege) ship a stub GSUB with one or
+    # more of FeatureList/LookupList/ScriptList set to None. There's nothing
+    # to preserve in that case — drop the table and let
+    # addOpenTypeFeaturesFromString below build a fresh one.
+    if "GSUB" in font and (
+        font["GSUB"].table.FeatureList is None
+        or font["GSUB"].table.LookupList is None
+        or font["GSUB"].table.ScriptList is None
+    ):
+        del font["GSUB"]
 
     if "GSUB" in font:
         old_gsub = font["GSUB"].table

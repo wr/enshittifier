@@ -226,7 +226,7 @@ class InstallerApp(tk.Tk):
         header = tk.Label(
             self,
             text="Enshittifier Installer",
-            font=("Helvetica", 18, "bold"),
+            font=("", 18, "bold"),
         )
         header.pack(**pad, anchor="w")
 
@@ -279,7 +279,7 @@ class InstallerApp(tk.Tk):
         btn_frame.pack(padx=12, pady=(0, 12), anchor="e")
         self._install_btn = tk.Button(
             btn_frame, text="Install Selected",
-            font=("Helvetica", 13, "bold"),
+            font=("", 13, "bold"),
             command=self._on_install,
             bg="#1a73e8", fg="white", relief="flat",
             padx=16, pady=8,
@@ -320,7 +320,7 @@ class InstallerApp(tk.Tk):
             else:
                 fg = "#333"
 
-            lbl = tk.Label(frame, text=label_text, anchor="w", fg=fg, font=("Helvetica", 11))
+            lbl = tk.Label(frame, text=label_text, anchor="w", fg=fg, font=("", 11))
             lbl.pack(side="left")
             lbl.bind("<Button-1>", lambda e, v=var: v.set(not v.get()))
 
