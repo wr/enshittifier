@@ -37,14 +37,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: gh-pages
-      # Pin to the *previous* major (v4 of configure-pages, v3 of upload,
-      # v4 of deploy). The v5 family's resolved SHAs were 404'ing on the
-      # Actions runner mirror at codeload — pinning to known-cached
-      # older SHAs sidesteps the issue. Bump back up when the mirror
-      # catches up.
-      - uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d   # v4.0.0
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3.0.1
+      # actions/configure-pages was 404'ing from the runner's codeload
+      # mirror for every pinned SHA (other actions on the same runner
+      # downloaded fine), so it's intentionally omitted. configure-pages
+      # is only required when you need its `base_url` output or when
+      # generating Jekyll config — for a plain static-file upload it's
+      # optional. Add it back when GitHub's mirror catches up.
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: .
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e   # v4.0.5
+        uses: actions/deploy-pages@v4
