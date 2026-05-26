@@ -10,7 +10,6 @@ __pycache__/
 # Build outputs (Xcode + create-dmg)
 build/
 dist/
-Enshittifier-dev.dmg
 Enshittifier-*.dmg
 
 # SwiftPM / Xcode

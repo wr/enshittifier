@@ -98,18 +98,24 @@ struct PythonPatcher {
         }
 
         // 2. Next to the executable (e.g. running the binary directly out of
-        //    DerivedData without a wrapping .app bundle)
+        //    DerivedData without a wrapping .app bundle). Probe both the
+        //    bare filename and engine/enshittifier.py since the script
+        //    lives under engine/ in the repo.
         let execDir = (Bundle.main.executableURL ?? Bundle.main.bundleURL).deletingLastPathComponent()
-        let beside = execDir.appendingPathComponent("enshittifier.py")
-        if fm.fileExists(atPath: beside.path) { return beside }
+        for relative in ["enshittifier.py", "engine/enshittifier.py"] {
+            let candidate = execDir.appendingPathComponent(relative)
+            if fm.fileExists(atPath: candidate.path) { return candidate }
+        }
 
         // 3. Walk up the directory tree looking for a sibling enshittifier.py
         //    (covers the binary running outside a .app, with the repo
         //    checked out somewhere above)
         var dir = execDir
         for _ in 0..<8 {
-            let candidate = dir.appendingPathComponent("enshittifier.py")
-            if fm.fileExists(atPath: candidate.path) { return candidate }
+            for relative in ["enshittifier.py", "engine/enshittifier.py"] {
+                let candidate = dir.appendingPathComponent(relative)
+                if fm.fileExists(atPath: candidate.path) { return candidate }
+            }
             let parent = dir.deletingLastPathComponent()
             if parent.path == dir.path { break }
             dir = parent
