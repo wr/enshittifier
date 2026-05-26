@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct EnshittifierInstallerApp: App {
     @State private var model = AppModel()
+    @StateObject private var updater = UpdaterController()
 
     var body: some Scene {
         WindowGroup("Enshittifier") {
@@ -14,6 +15,15 @@ struct EnshittifierInstallerApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) {}
+            // Sparkle "Check for Updates…" lives in the application menu,
+            // just below "About Enshittifier". Disabled while Sparkle is
+            // already running a check.
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates\u{2026}") {
+                    updater.checkForUpdates()
+                }
+                .disabled(!updater.canCheckForUpdates)
+            }
         }
     }
 }

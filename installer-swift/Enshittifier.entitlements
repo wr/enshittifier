@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for Enshittifier.
+
+  Sparkle's auto-update flow runs an embedded helper (`Autoupdate.app`)
+  out of `Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate.app`,
+  and that helper relaunches the host app. The two flags below are the
+  ones Sparkle's documentation requires when distributing a Developer ID
+  app with hardened runtime + notarization:
+
+  • `com.apple.security.cs.allow-jit` — not strictly needed by Sparkle,
+    omitted here. Re-add only if a future feature needs it.
+  • `com.apple.security.cs.disable-library-validation` — required so
+    Sparkle's helpers (signed with our identity, but loaded from inside
+    the framework bundle) can dynamically load Sparkle.framework at
+    runtime without library-validation rejecting them. Without this,
+    notarized builds crash on first update attempt.
+
+  We are NOT sandboxed (App Store distribution is not the target).
+  We do NOT request com.apple.security.app-sandbox — fonts under
+  ~/Library/Fonts and /System/Library/Fonts have to be readable, and
+  we shell out to a bundled Python venv to drive the patcher.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>
