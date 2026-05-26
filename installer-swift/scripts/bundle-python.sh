@@ -31,7 +31,14 @@ CACHE_DIR="$INSTALLER_DIR/build/cache"
 # checking the URL still resolves and that pip can still install the deps.
 PYBS_VERSION="3.13.0"
 PYBS_DATE="20241016"
-PYBS_ARCH="aarch64-apple-darwin"
+case "$(uname -m)" in
+    arm64)  PYBS_ARCH="aarch64-apple-darwin" ;;
+    x86_64) PYBS_ARCH="x86_64-apple-darwin" ;;
+    *)      echo "error: unsupported host arch: $(uname -m)" >&2; exit 1 ;;
+esac
+# TODO: pin SHA256 per (PYBS_VERSION, PYBS_DATE, PYBS_ARCH) and verify after
+# download. Low risk today since we fetch over HTTPS from a GitHub release,
+# but the notarized binary deserves a checksum gate.
 PYBS_TARBALL="cpython-${PYBS_VERSION}+${PYBS_DATE}-${PYBS_ARCH}-install_only_stripped.tar.gz"
 PYBS_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PYBS_DATE}/${PYBS_TARBALL}"
 PYBS_CACHE="$CACHE_DIR/${PYBS_TARBALL}"

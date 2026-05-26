@@ -239,7 +239,13 @@ fi
 
 # --- commit version bump + tag --------------------------------------------
 echo "==> Committing version bump and tagging $TAG"
-git -C "$REPO_ROOT" add installer-swift/project.yml installer-swift/Resources/Info.plist
+# xcodegen rewrote project.pbxproj with the new MARKETING_VERSION /
+# CURRENT_PROJECT_VERSION literals; include it so a fresh clone opens in
+# Xcode at the released version without needing xcodegen installed.
+git -C "$REPO_ROOT" add \
+    installer-swift/project.yml \
+    installer-swift/Resources/Info.plist \
+    installer-swift/Enshittifier.xcodeproj/project.pbxproj
 git -C "$REPO_ROOT" commit -m "Release ${TAG}"
 git -C "$REPO_ROOT" tag -a "$TAG" -m "$TAG"
 git -C "$REPO_ROOT" push origin HEAD "$TAG"

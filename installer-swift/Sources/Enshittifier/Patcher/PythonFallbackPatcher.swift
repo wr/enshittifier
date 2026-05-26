@@ -57,8 +57,7 @@ struct PythonFallbackPatcher {
             if hasFontTools(at: candidate) { return candidate }
         }
         // Differentiate "no python at all" from "python without fontTools"
-        for candidate in systemPythonCandidates where fm.isExecutableFile(atPath: candidate) {
-            _ = candidate
+        if systemPythonCandidates.contains(where: { fm.isExecutableFile(atPath: $0) }) {
             throw PatcherError.fontToolsMissing
         }
         throw PatcherError.pythonNotFound
