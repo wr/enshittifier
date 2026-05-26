@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct EnshittifierInstallerApp: App {
+struct EnshittifierApp: App {
     @State private var model = AppModel()
     @StateObject private var updater = UpdaterController()
 

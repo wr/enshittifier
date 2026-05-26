@@ -57,8 +57,7 @@ struct PythonFallbackPatcher {
             if hasFontTools(at: candidate) { return candidate }
         }
         // Differentiate "no python at all" from "python without fontTools"
-        for candidate in systemPythonCandidates where fm.isExecutableFile(atPath: candidate) {
-            _ = candidate
+        if systemPythonCandidates.contains(where: { fm.isExecutableFile(atPath: $0) }) {
             throw PatcherError.fontToolsMissing
         }
         throw PatcherError.pythonNotFound
@@ -94,7 +93,8 @@ struct PythonFallbackPatcher {
             return bundled
         }
 
-        // 2. Next to the executable (dev: .build/debug/EnshittifierInstaller)
+        // 2. Next to the executable (e.g. running the binary directly out of
+        //    DerivedData without a wrapping .app bundle)
         let execDir = (Bundle.main.executableURL ?? Bundle.main.bundleURL).deletingLastPathComponent()
         let beside = execDir.appendingPathComponent("enshittifier.py")
         if fm.fileExists(atPath: beside.path) { return beside }
