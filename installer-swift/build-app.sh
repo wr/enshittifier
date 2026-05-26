@@ -97,8 +97,13 @@ if [[ -f "$SPARKLE_PUBKEY_FILE" ]]; then
 fi
 
 # ----- build --------------------------------------------------------------
+# Bake `@executable_path/../Frameworks` into the binary's LC_RPATH so dyld
+# can find the Sparkle.framework we copy into Contents/Frameworks/ below.
+# SwiftPM's default rpaths point at /usr/lib/swift, @loader_path, and the
+# Xcode toolchain — none of which include a typical .app bundle layout.
 echo "==> swift build -c $BUILD_CONFIG"
-swift build -c "$BUILD_CONFIG"
+swift build -c "$BUILD_CONFIG" \
+    -Xlinker -rpath -Xlinker '@executable_path/../Frameworks'
 
 BIN_PATH="$(swift build -c "$BUILD_CONFIG" --show-bin-path)/EnshittifierInstaller"
 if [[ ! -x "$BIN_PATH" ]]; then
