@@ -42,10 +42,9 @@ IMPORTANT LIMITATIONS
    ~/Library/Fonts/ has no effect on menus, the Dock, or system dialogs.
 
 2. .ttc (TrueType Collection) fonts. Only .ttf and .otf are patched.
-   Most stock macOS system fonts (Helvetica.ttc, Times.ttc, Geneva.ttc,
-   …) are .ttc bundles, which the underlying patcher does not yet handle.
-   Stock .ttf system fonts (e.g. Skia.ttf, Symbol.ttf) and any .ttf/.otf
-   you've installed yourself are fair game.
+   A number of stock macOS system fonts ship as .ttc bundles, which the
+   underlying patcher does not yet handle. Stock .ttf system fonts and
+   any .ttf/.otf you've installed yourself are fair game.
 
 
 AFTER INSTALLATION

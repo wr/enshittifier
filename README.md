@@ -4,6 +4,13 @@ Patches any TTF or OTF font so the standalone word **"ai"** (in any case
 combination — `ai`, `AI`, `Ai`, `aI`) is rendered as 💩. Untouched everywhere
 else: `painter`, `rain`, `said`, `email`, `naïve`, `Hawaii`, etc.
 
+## Installers
+
+Two GUI installers live in this repo:
+
+- `installer/` — the original Tk-based Python installer, built into a `.app` via py2app. Run `bash installer/build_dmg.sh` to produce `Enshittifier.dmg`.
+- `installer-swift/` — **native SwiftUI rewrite, in progress (W-123)**. SwiftPM project; build with `bash installer-swift/build-app.sh` to produce `Enshittifier.app` + `Enshittifier-native.dmg`. Phase 1: native UI with Core Text font-family grouping; the patcher itself still delegates to bundled `enshittifier.py` (Phase 2+ ports the patcher to Swift incrementally).
+
 ## Usage
 
 ```bash
@@ -124,8 +131,17 @@ Requires `fonttools` and `svgpathtools` (`pip install fonttools svgpathtools`).
 - **Lowercase Latin only.** The substitution targets Basic Latin `a/A/i/I`
   — Cyrillic, Greek, fullwidth, etc. don't trigger.
 
-## Licensing
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0**.
+See [LICENSE](LICENSE) for the full text. In short: source-available, copyleft;
+if you run a modified version as a network service, you must publish the
+modified source.
+
+### Fonts you patch
 
 Patch your own fonts. Don't redistribute patched copies of fonts you aren't
-licensed to redistribute. The patched font carries the original's name and
-metadata, which means it inherits the original's license too.
+licensed to redistribute — the patched file carries the original font's
+name, metadata, and license terms, so it inherits the original's
+restrictions. Many commercial font EULAs explicitly prohibit modification or
+the creation of derivative works.
