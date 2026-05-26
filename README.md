@@ -12,14 +12,15 @@ notarized DMGs with Sparkle in-app auto-updates.
 
 - **Download the latest signed build** from the
   [Releases page](https://github.com/wr/enshittifier/releases).
-- **Build from source:** `bash installer-swift/build-app.sh` produces
-  `installer-swift/build/Enshittifier.app` + a dev `.dmg` at the repo
-  root.
+- **Build from source:** `bash installer-swift/scripts/build-dev.sh`
+  produces `installer-swift/build/Enshittifier.app` (adhoc-signed) +
+  `Enshittifier-native.dmg` at the repo root. Requires `xcodegen` and
+  `create-dmg` (`brew install xcodegen create-dmg`).
 - **Cut a signed release** (developer only): `bash
-  installer-swift/build-app.sh --release vX.Y.Z` — codesigns, notarizes,
-  staples, EdDSA-signs, publishes to GitHub Releases, prepends to the
-  Sparkle appcast on `gh-pages`. See `installer-swift/sparkle/README.md`
-  for the per-machine setup.
+  installer-swift/scripts/release.sh X.Y.Z` — bumps versions, codesigns,
+  notarizes, staples, EdDSA-signs, publishes to GitHub Releases, prepends
+  to the Sparkle appcast on `gh-pages`. See
+  `installer-swift/sparkle/README.md` for the per-machine setup.
 
 Phase 1 of the installer shells out to bundled `enshittifier.py` for the
 actual patching; Phase 2+ ports the patcher tables to Swift incrementally.

@@ -7,10 +7,10 @@ import Sparkle
 /// Sparkle's AppKit-style delegate protocol directly.
 ///
 /// Configuration lives in the app's Info.plist (`SUFeedURL`,
-/// `SUPublicEDKey`, `SUEnableAutomaticChecks`, etc.), populated by
-/// `installer-swift/build-app.sh` at build time. The updater is started
-/// automatically; calling `checkForUpdates()` opens the standard Sparkle
-/// "An update is available" / "You're up to date" dialog.
+/// `SUPublicEDKey`, `SUEnableAutomaticChecks`, etc.), declared in
+/// `installer-swift/project.yml`. The updater is started automatically;
+/// calling `checkForUpdates()` opens the standard Sparkle "An update is
+/// available" / "You're up to date" dialog.
 @MainActor
 final class UpdaterController: ObservableObject {
     @Published var canCheckForUpdates = false
