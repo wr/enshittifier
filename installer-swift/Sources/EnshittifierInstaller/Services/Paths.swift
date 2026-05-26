@@ -23,12 +23,12 @@ enum Paths {
     /// source directory structure under `Fonts (Backup)/user|system/...`.
     ///
     /// Examples:
-    ///   ~/Library/Fonts/Cabin/Cabin-Regular.ttf
-    ///     → Fonts (Backup)/user/Cabin/Cabin-Regular.ttf
-    ///   /System/Library/Fonts/Skia.ttf
-    ///     → Fonts (Backup)/system/Skia.ttf
-    ///   /System/Library/Fonts/Supplemental/Arial.ttf
-    ///     → Fonts (Backup)/system/Supplemental/Arial.ttf
+    ///   ~/Library/Fonts/Foo/Foo-Regular.ttf
+    ///     → Fonts (Backup)/user/Foo/Foo-Regular.ttf
+    ///   /System/Library/Fonts/Bar.ttf
+    ///     → Fonts (Backup)/system/Bar.ttf
+    ///   /System/Library/Fonts/Supplemental/Baz.ttf
+    ///     → Fonts (Backup)/system/Supplemental/Baz.ttf
     static func backupDestination(for source: URL, location: FontLocation) -> URL {
         let root = location == .system ? systemFontDir : userFontDir
         let rootPath = root.standardizedFileURL.path
