@@ -436,8 +436,12 @@ NOTES_FILE="$BUILD_DIR/release-notes-${RELEASE_TAG}.md"
         echo "Initial release."
     fi
 } > "$NOTES_FILE"
+# --target pins the release's target_commitish to the commit we actually
+# built, otherwise `gh release create` uses the default branch's HEAD and
+# the release ends up associated with the wrong commit.
 gh release create "$RELEASE_TAG" "$DMG_PATH" \
     --repo "$GH_REPO" \
+    --target "$HEAD_COMMIT" \
     --title "$RELEASE_TAG" \
     --notes-file "$NOTES_FILE"
 
