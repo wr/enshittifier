@@ -1,2 +1,4 @@
 fonttools
+svgpathtools
+cu2qu
 brotli

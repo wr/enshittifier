@@ -4,12 +4,10 @@ Sparkle wiring for Enshittifier. The Sparkle Swift package itself is
 declared in `project.yml` under `packages:`; Xcode (via xcodegen) resolves
 + embeds `Sparkle.framework` automatically.
 
-## Files
-
-- `appcast.template.xml` — bootstrap template for the live appcast.
-  Used the first time a release is cut to seed an orphan `gh-pages`
-  branch; subsequent releases just prepend a new `<item>` to the
-  already-published `appcast.xml`.
+The appcast itself is built/updated by `scripts/update_appcast.py` —
+called from `scripts/release.sh` against a `gh-pages` worktree. The first
+release cuts a fresh `appcast.xml` from scratch (the script handles the
+empty-file case); subsequent releases prepend a new `<item>`.
 
 The Sparkle EdDSA **public** key is committed directly in `project.yml`
 under `SUPublicEDKey` (it's not secret — verifies signatures, doesn't

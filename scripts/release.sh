@@ -285,46 +285,20 @@ if git -C "$REPO_ROOT" show-ref --verify --quiet refs/heads/gh-pages \
     git -C "$REPO_ROOT" fetch origin gh-pages || true
     git -C "$REPO_ROOT" worktree add "$PAGES_WT" gh-pages
 else
-    # First-ever release: bootstrap an orphan gh-pages from the template.
+    # First-ever release: bootstrap an orphan gh-pages. update_appcast.py
+    # will create a fresh appcast.xml if one doesn't exist yet.
     git -C "$REPO_ROOT" worktree add --detach "$PAGES_WT"
     git -C "$PAGES_WT" checkout --orphan gh-pages
     git -C "$PAGES_WT" rm -rf . >/dev/null 2>&1 || true
-    cp "$REPO_ROOT/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
-fi
-if [[ ! -f "$PAGES_WT/appcast.xml" ]]; then
-    cp "$REPO_ROOT/sparkle/appcast.template.xml" "$PAGES_WT/appcast.xml"
 fi
 
-
-PUB_DATE="$(date -u +"%a, %d %b %Y %H:%M:%S +0000")"
-NEW_ITEM=$(cat <<EOF
-        <item>
-            <title>${TAG}</title>
-            <pubDate>${PUB_DATE}</pubDate>
-            <sparkle:version>${NEW_BUILD}</sparkle:version>
-            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure
-                url="${DMG_URL}"
-                length="${DMG_LENGTH}"
-                type="application/octet-stream"
-                sparkle:edSignature="${ED_SIGNATURE}" />
-        </item>
-EOF
-)
-
-python3 - "$PAGES_WT/appcast.xml" "$NEW_ITEM" <<'PYEOF'
-import sys, pathlib
-path = pathlib.Path(sys.argv[1])
-new_item = sys.argv[2]
-text = path.read_text()
-marker = "<!-- ENSHITTIFIER_APPCAST_INSERT_BEFORE -->"
-if marker in text:
-    text = text.replace(marker, new_item + "\n        " + marker, 1)
-else:
-    text = text.replace("</channel>", new_item + "\n    </channel>", 1)
-path.write_text(text)
-PYEOF
+python3 "$REPO_ROOT/scripts/update_appcast.py" \
+    --appcast "$PAGES_WT/appcast.xml" \
+    --version "$VERSION" \
+    --build "$NEW_BUILD" \
+    --url "$DMG_URL" \
+    --length "$DMG_LENGTH" \
+    --signature "$ED_SIGNATURE"
 
 git -C "$PAGES_WT" add appcast.xml
 git -C "$PAGES_WT" commit -m "Appcast: ${TAG}"
