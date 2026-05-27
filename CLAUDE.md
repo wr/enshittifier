@@ -33,6 +33,26 @@ bash scripts/run-tests.sh
 git config core.hooksPath .githooks
 ```
 
+## First-time developer setup (per machine)
+
+Required to cut a release; not required for dev builds or running tests.
+
+1. Confirm signing identity is in Keychain:
+   `security find-identity -v -p codesigning | grep "Developer ID"`
+2. Confirm notarytool keychain profile exists:
+   `xcrun notarytool history --keychain-profile enshittifier-notarize`
+   If not, create with:
+   ```
+   xcrun notarytool store-credentials enshittifier-notarize \
+       --apple-id <your-apple-id> \
+       --team-id P3V9EZ525M
+   ```
+3. Confirm Sparkle private key exists in Keychain (idempotent — prints the existing public key if one's already stored):
+   `bin/generate_keys`
+   If a fresh key is generated, paste the printed public key into `project.yml` under `SUPublicEDKey` and `xcodegen generate`. **Never regenerate without coordinating** — losing the private key permanently locks out auto-update for users on a prior version.
+4. `gh auth status` — must show authenticated for `github.com`.
+5. **After the first release lands** and `gh-pages` exists, enable GitHub Pages in repo settings → Pages → Source → **GitHub Actions**. Until that's done, the in-app updater will fail silently ("Sparkle could not load update info") — by design, since there's literally nothing to download yet.
+
 ## Testing
 
 Pure-logic tests for the font patcher live under `engine/tests/` and use pytest. `scripts/run-tests.sh` runs the suite against `engine/enshittifier.py`; the `.githooks/pre-push` hook calls it, so a failing test blocks `git push` once the hook is enabled.
@@ -109,7 +129,6 @@ After install or restore, `FontCacheFlusher.flush()` runs `atsutil databases -re
 - `Resources/` — `Info.plist` (xcodegen-generated), entitlements, `AppIcon.icon`.
 - `scripts/` — `build-dev.sh`, `release.sh`, `bundle-python.sh`, `run-tests.sh`, `update_appcast.py`.
 - `bin/` — vendored Sparkle `generate_keys` + `sign_update` so release doesn't depend on `.build/artifacts/` being intact.
-- `sparkle/` — appcast template + per-machine Sparkle setup notes.
 - `.githooks/pre-push` — runs `scripts/run-tests.sh`; activate with `git config core.hooksPath .githooks`.
 
 ## Style guidelines

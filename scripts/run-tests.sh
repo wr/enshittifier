@@ -12,7 +12,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-VENV="engine/.venv"
+VENV="$(pwd)/engine/.venv"
 if [[ ! -d "$VENV" ]]; then
   echo "→ Bootstrapping $VENV"
   python3 -m venv "$VENV"
@@ -21,4 +21,4 @@ if [[ ! -d "$VENV" ]]; then
 fi
 
 cd engine
-exec .venv/bin/python -m pytest tests/ "$@"
+exec "$VENV/bin/python" -m pytest tests/ "$@"

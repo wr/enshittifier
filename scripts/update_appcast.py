@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""Insert/update a version entry in the Sparkle appcast.xml on gh-pages."""
+"""Insert/update a version entry in the Sparkle appcast.xml on gh-pages.
+
+Requires Python 3.9+ (uses ET.indent).
+"""
 
 import argparse
 import os
+import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+
+if sys.version_info < (3, 9):
+    sys.exit("error: update_appcast.py requires Python 3.9+ (uses ET.indent)")
 
 NS = {
     "sparkle": "http://www.andymatuschak.org/xml-namespaces/sparkle",
@@ -69,7 +76,7 @@ def main() -> int:
         attrib={
             "url": args.url,
             "type": "application/octet-stream",
-            "length": str(args.length),
+            "length": args.length,
             "{%s}edSignature" % NS["sparkle"]: args.signature,
         },
     )
