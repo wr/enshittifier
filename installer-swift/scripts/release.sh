@@ -198,7 +198,10 @@ codesign --force --options runtime --timestamp \
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 # --- DMG ------------------------------------------------------------------
-DMG_NAME="Enshittifier-${VERSION}.dmg"
+# Single DMG per release, named without a version suffix. The version is
+# already encoded in the release tag (/v$VERSION/Enshittifier.dmg), so the
+# marketing site can link to /releases/latest/download/Enshittifier.dmg.
+DMG_NAME="Enshittifier.dmg"
 DMG_PATH="$BUILD_DIR/$DMG_NAME"
 echo "==> Creating $DMG_NAME"
 rm -f "$DMG_PATH"
