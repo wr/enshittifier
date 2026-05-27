@@ -1,0 +1,80 @@
+name: Enshittifier
+options:
+  bundleIdPrefix: com.enshittifier.installer
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    # Release builds get Developer ID + hardened runtime + timestamp via the
+    # explicit overrides xcodebuild gets from scripts/release.sh. Debug builds
+    # adhoc-sign so xcodegen + Xcode work standalone.
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: YES
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
+
+targets:
+  Enshittifier:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/Enshittifier
+      # Icon Composer bundle. xcodegen 2.45+ recognises the .icon extension
+      # as `folder.iconcomposer.icon` so actool processes it as the app
+      # icon asset. Active set is selected via ASSETCATALOG_COMPILER_APPICON_NAME.
+      - path: Resources/AppIcon.icon
+      # The bundled Python patching engine. Copied into Contents/Resources/
+      # at build time; the app shells out to it via PythonPatcher.
+      - path: engine/enshittifier.py
+        buildPhase: resources
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleName: Enshittifier
+        CFBundleDisplayName: Enshittifier
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIconFile: "$(APP_ICON_NAME)"
+        CFBundleIconName: "$(APP_ICON_NAME)"
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: "© 2026 Wells Riley"
+        NSHighResolutionCapable: true
+        NSPrincipalClass: NSApplication
+        # Sparkle wiring — public key is not secret; commit it. The matching
+        # private key lives in the developer's login keychain (managed by
+        # bin/generate_keys + bin/sign_update).
+        SUFeedURL: "https://wr.github.io/enshittifier/appcast.xml"
+        SUPublicEDKey: "NUW/cpxaKEqfwn2Uca4Zz9n01EmxhN0RRwhdma8GIuM="
+        SUEnableAutomaticChecks: true
+        SUEnableInstallerLauncherService: true
+        SUScheduledCheckInterval: 86400
+    settings:
+      base:
+        # Keep this bundle ID stable forever — the live Sparkle update channel
+        # is keyed off it, so any change orphans existing installs.
+        PRODUCT_BUNDLE_IDENTIFIER: com.enshittifier.installer.native
+        PRODUCT_MODULE_NAME: Enshittifier
+        # scripts/release.sh bumps both before each release. MARKETING_VERSION
+        # = semver in tags / Sparkle's shortVersion; CURRENT_PROJECT_VERSION =
+        # monotonic build number Sparkle compares for upgrade decisions.
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: "$(APP_ICON_NAME)"
+        APP_ICON_NAME: "AppIcon"
+        CODE_SIGN_ENTITLEMENTS: Resources/Enshittifier.entitlements
+    dependencies:
+      - package: Sparkle
