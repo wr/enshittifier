@@ -1,0 +1,736 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Enshittifier marketing site
+   Zine / shitpost energy: cream paper, serif display, mono body.
+   ───────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light dark;
+
+  --bg:        #f5ecd9;
+  --bg-paper:  #f0e4ca;
+  --ink:       #1a1410;
+  --muted:     #6b5947;
+  --accent:    #8b5a2b;
+  --accent-2:  #a8743f;
+  --rule:      #c9b896;
+  --hi:        #f5a623;
+  --danger:    #c0392b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #1a1410;
+    --bg-paper:  #221b15;
+    --ink:       #f5ecd9;
+    --muted:     #b9a98e;
+    --accent:    #c89160;
+    --accent-2:  #d4a578;
+    --rule:      #463829;
+    --hi:        #f5a623;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--accent); color: var(--bg); }
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+a:hover { color: var(--ink); background: var(--hi); }
+
+em { font-style: italic; color: var(--accent); }
+strong { font-weight: 700; }
+
+.mono {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+
+.display, h1, h2 {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+}
+
+.muted    { color: var(--muted); }
+.sr-only  { position: absolute; width: 1px; height: 1px; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   The swap — AI ↔ 💩 in place, controlled by the toggle.
+
+   Both children share one inline-grid cell so the parent auto-sizes to
+   max(AI width, 💩 width). Switching between them is an opacity cross-
+   fade — the parent's box doesn't move, so the period (or whatever
+   comes next) stays tight.
+
+   Default state shows AI. [data-mode="poop"] on <html> flips every
+   swap on the page to 💩 at once.
+   ───────────────────────────────────────────────────────────────────── */
+
+.swap, .d-swap {
+  display: inline-grid;
+  grid-template-areas: "stack";
+  vertical-align: baseline;
+  font-style: normal;
+}
+
+.swap > *, .d-swap > * {
+  grid-area: stack;
+  justify-self: center;
+  align-self: center;
+}
+
+.swap .ai-t, .swap .ai-p,
+.d-swap .d-t, .d-swap .d-p {
+  transition: opacity 0.28s ease;
+}
+
+.swap .ai-t,
+.d-swap .d-t { opacity: 1; }
+.swap .ai-p,
+.d-swap .d-p { opacity: 0; }
+
+[data-mode="poop"] .swap .ai-t,
+[data-mode="poop"] .d-swap .d-t { opacity: 0; }
+[data-mode="poop"] .swap .ai-p,
+[data-mode="poop"] .d-swap .d-p { opacity: 1; }
+
+.swap .ai-t {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-style: italic;
+  color: var(--accent);
+}
+.swap .ai-p {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  color: initial;
+}
+
+/* Body-text inline swaps: matches surrounding mono prose. */
+.swap.inline .ai-t {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-weight: 700;
+  font-style: normal;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+.swap.inline .ai-p {
+  font-size: 1.05em;
+}
+
+.d-swap .d-t {
+  font-family: ui-serif, Georgia, serif;
+  color: inherit;
+}
+.d-swap .d-p {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap .ai-t, .swap .ai-p,
+  .d-swap .d-t, .d-swap .d-p { transition: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   The toggle — a large visual switch. Two halves (AI / 💩), brown
+   thumb slides between them with an ease that pops. This is one of
+   the main features of the site, not a utility control — built to
+   stay visible while scrolling and to feel good to flip.
+   ───────────────────────────────────────────────────────────────────── */
+
+.ui-mode {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 50;
+  animation: ui-mode-in 0.6s 0.25s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+
+@keyframes ui-mode-in {
+  from { opacity: 0; transform: translate(40px, -10px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ui-mode-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 184px;
+  height: 64px;
+  padding: 6px;
+  margin: 0;
+  background: var(--bg);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 6px 6px 0 var(--accent);
+  cursor: pointer;
+  font: inherit;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ui-mode-switch:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 7px 7px 0 var(--accent);
+}
+.ui-mode-switch:active {
+  transform: translate(1px, 1px);
+  box-shadow: 4px 4px 0 var(--accent);
+}
+.ui-mode-switch:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.ui-mode-thumb {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc(50% - 6px);
+  background: var(--ink);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.36s cubic-bezier(0.34, 1.4, 0.55, 1),
+              background 0.36s ease;
+}
+
+.ui-mode-switch[aria-pressed="true"] .ui-mode-thumb {
+  transform: translateX(100%);
+  background: var(--accent);
+}
+
+.ui-mode-side {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+  pointer-events: none;
+  transition: color 0.28s ease, transform 0.28s ease;
+  user-select: none;
+}
+
+.ui-mode-poop {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 28px;
+}
+
+/* Active side: text becomes cream (visible against the dark thumb). */
+.ui-mode-switch:not([aria-pressed="true"]) .ui-mode-ai {
+  color: var(--bg);
+  transform: scale(1.06);
+}
+.ui-mode-switch[aria-pressed="true"] .ui-mode-poop {
+  transform: scale(1.08);
+}
+
+/* Inactive side: muted on the cream background. */
+.ui-mode-switch[aria-pressed="true"] .ui-mode-ai {
+  color: var(--muted);
+}
+.ui-mode-switch:not([aria-pressed="true"]) .ui-mode-poop {
+  opacity: 0.55;
+  filter: saturate(0.5);
+}
+
+/* Beckon the inactive side until the user has touched it, so the
+   switch reads as "interactive" instead of decorative. Once the
+   button gets [data-touched] (set on first click, or on page load
+   if a previous choice is restored from localStorage) the pulse
+   stops for good. */
+@keyframes ui-mode-beckon {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.16); }
+}
+.ui-mode-switch:not([data-touched], [aria-pressed="true"]) .ui-mode-poop {
+  animation: ui-mode-beckon 2.4s ease-in-out infinite;
+}
+.ui-mode-switch:not([data-touched])[aria-pressed="true"] .ui-mode-ai {
+  animation: ui-mode-beckon 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-mode { animation: none; }
+  .ui-mode-thumb,
+  .ui-mode-side { transition: none; }
+  .ui-mode-switch .ui-mode-side { animation: none !important; }
+}
+
+@media (max-width: 560px) {
+  .ui-mode { top: 14px; right: 14px; }
+  .ui-mode-switch {
+    width: 148px;
+    height: 54px;
+    padding: 5px;
+    box-shadow: 5px 5px 0 var(--accent);
+  }
+  .ui-mode-switch:hover { box-shadow: 6px 6px 0 var(--accent); }
+  .ui-mode-thumb { top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px); }
+  .ui-mode-side { font-size: 20px; }
+  .ui-mode-poop { font-size: 24px; }
+}
+
+/* ── HERO ───────────────────────────────────────────────────────── */
+
+.hero {
+  padding: clamp(56px, 10vw, 120px) 24px 40px;
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.hero-h {
+  font-size: clamp(60px, 13vw, 180px);
+  font-weight: 900;
+  margin: 0 0 clamp(28px, 4vw, 44px);
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+}
+
+.hero-h .ink { color: var(--accent); font-style: italic; }
+
+.hero-sub {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: clamp(15px, 2.1vw, 20px);
+  color: var(--ink);
+  max-width: 56ch;
+  margin: 0 0 clamp(36px, 5vw, 56px);
+  line-height: 1.5;
+}
+
+.scroll-cue {
+  display: inline-block;
+  font-size: 24px;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1.5px solid var(--rule);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  line-height: 40px;
+  text-align: center;
+  transition: transform 0.18s, border-color 0.18s, color 0.18s;
+}
+.scroll-cue:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: transparent;
+  transform: translateY(3px);
+}
+
+/* ── MARQUEE ────────────────────────────────────────────────────── */
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  border-top: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  background: var(--bg-paper);
+  padding: 14px 0;
+  margin: 16px 0 0;
+}
+
+.marquee-track {
+  display: inline-flex;
+  gap: 28px;
+  white-space: nowrap;
+  animation: marquee 65s linear infinite;
+  font-family: ui-monospace, monospace;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.marquee-track span { flex: 0 0 auto; }
+.marquee-track span:nth-child(even) { color: var(--accent); font-weight: 400; }
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  .marquee { overflow-x: auto; }
+}
+
+/* ── BODY SECTIONS ──────────────────────────────────────────────── */
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.prose, .product {
+  padding: clamp(48px, 7vw, 80px) 0;
+}
+
+.prose p, .product p {
+  margin: 0 0 1.1em;
+}
+
+.ascii-rule {
+  text-align: center;
+  color: var(--rule);
+  letter-spacing: 0.4em;
+  font-size: 14px;
+  margin: 0 0 clamp(40px, 6vw, 64px);
+  user-select: none;
+}
+
+.closer {
+  font-size: clamp(28px, 4vw, 42px);
+  margin-top: 1.4em;
+  line-height: 1.15;
+}
+
+.product h2 {
+  font-size: clamp(38px, 6.5vw, 68px);
+  margin: 0 0 0.6em;
+}
+
+/* ── PICKER (manifesto → product nav) ────────────────────────────── */
+
+.picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: clamp(40px, 6vw, 60px) 0 0;
+}
+
+.pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 22px 56px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 6px 6px 0 var(--accent);
+  text-decoration: none;
+  overflow: visible;
+  transition: transform 0.14s, box-shadow 0.14s, background 0.14s, color 0.14s;
+}
+
+.pick:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--accent);
+}
+
+.pick-eyebrow {
+  display: block;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.pick:hover .pick-eyebrow { color: var(--accent-2); }
+
+.pick-name {
+  display: block;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  font-size: clamp(22px, 3.4vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -0.012em;
+}
+
+.pick-arrow {
+  position: absolute;
+  bottom: 18px;
+  right: 22px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--accent);
+  transition: transform 0.18s, color 0.18s;
+}
+.pick:hover .pick-arrow {
+  color: var(--bg);
+  transform: translateY(3px);
+}
+
+.pick-badge {
+  position: absolute;
+  bottom: 18px;
+  left: 22px;
+  z-index: 2;
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--danger);
+  color: #fff;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+@media (max-width: 560px) {
+  .picker { grid-template-columns: 1fr; }
+  .pick { padding: 18px 18px 52px; }
+  .pick-eyebrow { font-size: 13px; }
+  .pick-badge { bottom: 16px; left: 18px; font-size: 9.5px; padding: 3px 9px; }
+}
+
+/* ── DEMO CARD (extension) ──────────────────────────────────────── */
+
+.demo {
+  margin: clamp(28px, 4vw, 40px) 0;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 6px 6px 0 var(--ink);
+  overflow: hidden;
+}
+
+.demo-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-paper);
+  border-bottom: 2px solid var(--ink);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.demo-chrome .dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--rule);
+  margin-right: 2px;
+}
+.demo-chrome .dot.r { background: #e36460; }
+.demo-chrome .dot.y { background: #f1c40f; }
+.demo-chrome .dot.g { background: #6dbe61; }
+.demo-chrome .demo-url {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.demo-body {
+  margin: 0;
+  padding: 22px 26px;
+  font-family: ui-serif, Georgia, serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+.demo-body p { margin: 0 0 0.8em; }
+
+.demo-body .byline {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── CTAs ────────────────────────────────────────────────────────── */
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: clamp(28px, 4vw, 40px) 0 14px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 var(--accent);
+  transition: transform 0.12s, box-shadow 0.12s;
+  letter-spacing: 0.01em;
+}
+.btn:hover {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.btn-secondary:hover {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.btn-disabled {
+  background: var(--bg-paper);
+  color: var(--muted);
+  border: 2px dashed var(--rule);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.btn-disabled:hover {
+  background: var(--bg-paper);
+  color: var(--muted);
+  transform: none;
+  box-shadow: none;
+  border-color: var(--rule);
+}
+
+.fine {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── ABOUT ───────────────────────────────────────────────────────── */
+
+.links {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 0;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 2.1;
+}
+.links li::before {
+  content: "→ ";
+  color: var(--accent);
+  margin-right: 4px;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────────── */
+
+footer {
+  border-top: 1px solid var(--rule);
+  margin-top: clamp(64px, 10vw, 120px);
+  padding: 28px 24px 48px;
+  text-align: center;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+footer a { color: var(--muted); }
+
+/* ── PROSE PAGES (privacy, 404) ──────────────────────────────────── */
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 96px) 24px;
+}
+
+.page h1 {
+  font-size: clamp(40px, 6vw, 64px);
+  margin: 0 0 12px;
+}
+
+.page .breadcrumb {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 32px;
+  letter-spacing: 0.08em;
+}
+
+.page h2 {
+  font-family: ui-serif, Georgia, serif;
+  font-size: 24px;
+  margin: 36px 0 12px;
+}
+
+.page p, .page li { font-size: 16px; line-height: 1.65; }
+.page ul { padding-left: 22px; }
+.page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+.page th, .page td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.page th { background: var(--bg-paper); }
+
+/* ── 404 ─────────────────────────────────────────────────────────── */
+
+.gone {
+  text-align: center;
+  padding: clamp(80px, 16vw, 180px) 24px;
+}
+.gone .four {
+  font-family: ui-serif, Georgia, serif;
+  font-size: clamp(100px, 22vw, 280px);
+  font-weight: 900;
+  line-height: 0.9;
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+.gone .four .poop { font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
+.gone p { font-family: ui-monospace, monospace; color: var(--muted); margin: 24px 0 32px; }
+
+/* ── RESPONSIVE TWEAKS ───────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .demo-body { padding: 18px; font-size: 15px; }
+  .btn { padding: 12px 16px; font-size: 14px; }
+}

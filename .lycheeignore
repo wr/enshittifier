@@ -1,0 +1,12 @@
+# One regex per line. Lines starting with # are comments.
+
+# Python's http.server (which links.sh uses) doesn't extensionless-strip
+# the way GitHub Pages does, so /privacy 404s locally even though it's
+# fine in prod (privacy.html is served as /privacy).
+.*/privacy$
+
+# The Mac-app DMG URL points at /releases/latest, which only resolves
+# once a release exists. PR wr/enshittifier#16 renames the artifact to
+# Enshittifier.dmg; until that ships, this link 404s but is the URL the
+# site should use long-term.
+.*/releases/latest/download/Enshittifier\.dmg

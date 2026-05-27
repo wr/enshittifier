@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy · Enshittifier</title>
+  <meta name="description" content="Enshittifier doesn't collect, transmit, or share any data about you. It runs entirely in your browser." />
+  <meta name="theme-color" content="#f5ecd9" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a1410" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%A9%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="style.css?v=8" />
+</head>
+<body>
+
+<article class="page">
+  <p class="breadcrumb"><a href="/">← enshittifier.wells.ee</a></p>
+
+  <h1 class="display">Privacy policy</h1>
+  <p>
+    Short version: Enshittifier doesn't collect, transmit, or share any data
+    about you. It runs entirely in your browser.
+  </p>
+
+  <h2>What's stored</h2>
+  <p>
+    The extension uses <span class="mono">chrome.storage.sync</span> to remember
+    four settings between browser sessions, and to sync them across the Chrome
+    installs you're signed into.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Key</th><th>What it holds</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="mono">enabled</span></td><td>on / off toggle</td></tr>
+      <tr><td><span class="mono">replacement</span></td><td>the text or emoji you picked to replace "AI" with</td></tr>
+      <tr><td><span class="mono">excludedDomains</span></td><td>the list of sites you told the extension to skip</td></tr>
+      <tr><td><span class="mono">effect</span></td><td>the visual effect (Plain · Glow · Twirl · Rainbow)</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    That's the entire data footprint. Sync is handled by Google as part of
+    Chrome — see
+    <a href="https://www.google.com/chrome/privacy/whitepaper.html#sync">Google's
+    Chrome Sync privacy notice</a> for what they do with it.
+  </p>
+
+  <h2>What's NOT collected</h2>
+  <ul>
+    <li>No analytics, telemetry, or usage tracking.</li>
+    <li>No remote servers contacted by the extension itself.</li>
+    <li>No reading or transmitting of the page content the extension processes.
+        Text replacement happens entirely in the page's DOM and never leaves the
+        browser.</li>
+    <li>No advertising IDs, fingerprinting, or unique identifiers of any kind.</li>
+  </ul>
+
+  <h2>Permissions</h2>
+  <ul>
+    <li><strong><span class="mono">storage</span></strong> — required to
+        remember the four settings above.</li>
+    <li><strong>content script on <span class="mono">&lt;all_urls&gt;</span></strong>
+        — required to do the actual text replacement. The extension's only
+        purpose is to rewrite text on the web pages you visit, so it has to run
+        on each page. It does not read or send page content anywhere; it just
+        edits the DOM in place.</li>
+  </ul>
+
+  <h2>Third parties</h2>
+  <p>The options page links out to two third-party sites:</p>
+  <ul>
+    <li><a href="https://enshittifier.wells.ee">enshittifier.wells.ee</a> — this site</li>
+    <li><a href="https://buymeacoffee.com/wellsriley">buymeacoffee.com/wellsriley</a> — optional tip jar</li>
+  </ul>
+  <p>
+    The extension itself doesn't load or contact either site. Clicking the
+    links opens a new tab the normal way; at that point their own privacy
+    policies apply.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Open an issue at
+    <a href="https://github.com/wr/enshittifier-extension">github.com/wr/enshittifier-extension</a>
+    or use the <a href="https://wells.ee/contact">contact form</a>.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    This policy will be updated alongside the extension if the data footprint
+    ever changes. The history is in git.
+  </p>
+</article>
+
+<footer>
+  <p>
+    © <a href="https://wells.ee">Wells Riley</a> · AGPL-3.0 ·
+    <a href="https://buymeacoffee.com/wellsriley">tip jar</a> ·
+    <a href="https://wells.ee/contact">contact</a> ·
+    <a href="/privacy">privacy</a>
+  </p>
+</footer>
+
+</body>
+</html>
