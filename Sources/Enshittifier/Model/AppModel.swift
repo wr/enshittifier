@@ -5,20 +5,25 @@ import Observation
 final class AppModel {
     enum Tab: String, CaseIterable, Identifiable, Hashable {
         case allFonts = "All Fonts"
-        case regularFonts = "Regular Fonts"
-        case enshittified = "Enshittified Fonts"
+        case unshittified = "Un-shittified"
+        case enshittified = "Enshittified"
+        case restoreOriginals = "Restore Originals"
 
         var id: String { rawValue }
         var systemImage: String {
             switch self {
             case .allFonts: return "textformat"
-            case .regularFonts: return "character.book.closed"
+            case .unshittified: return "character.book.closed"
             case .enshittified: return "wand.and.stars"
+            case .restoreOriginals: return "arrow.uturn.backward"
             }
         }
 
-        /// True when the tab is showing installable (un-patched) families.
-        var isInstallTab: Bool { self != .enshittified }
+        /// True when the tab is purely informational — no selection, no
+        /// primary action. Used by the Enshittified tab so it doubles as
+        /// a "what's been changed" surface without inviting clicks that
+        /// belong on Restore Originals.
+        var isReadOnly: Bool { self == .enshittified }
     }
 
     enum LoadState {
@@ -73,14 +78,16 @@ final class AppModel {
     /// IDs of selected styles. A family is "all selected" iff every style id is in this set.
     var selectedStyleIDs: Set<String> = []
 
-    var restoreFamilies: [RestoreFamily] = []
+    var restoreFamilies: [RestoreFamily] = [] {
+        didSet { patchedOriginalPaths = Self.computePatchedPaths(from: restoreFamilies) }
+    }
     /// Selected restore entry IDs (entry.id == original_path string).
     var selectedRestoreIDs: Set<String> = []
 
     // MARK: Derived
 
     /// Set of absolute file paths currently recorded as patched in the
-    /// origins manifest. Used to filter "Regular Fonts" vs "Enshittified
+    /// origins manifest. Used to filter "Un-shittified" vs "Enshittified
     /// Fonts" and to mark families as patched.
     ///
     /// Includes both `originalPath` (the pre-patch location, which is what
@@ -89,9 +96,15 @@ final class AppModel {
     /// ~/Library/Fonts/ shadow for system fonts). Discovery records the
     /// shadow URL for system fonts (since the user-dir copy wins the
     /// dedupe), so we need both to recognise a shadowed family as patched.
-    var patchedOriginalPaths: Set<String> {
+    ///
+    /// Cached: recomputed only when `restoreFamilies` is assigned. Reading
+    /// this on every tile/row render burned measurable CPU on large
+    /// libraries when it was a `var { get }`.
+    private(set) var patchedOriginalPaths: Set<String> = []
+
+    private static func computePatchedPaths(from families: [RestoreFamily]) -> Set<String> {
         var out = Set<String>()
-        for f in restoreFamilies {
+        for f in families {
             for e in f.entries {
                 out.insert(e.originalPath.path)
                 out.insert(e.livePath.path)
@@ -117,14 +130,27 @@ final class AppModel {
         switch tab {
         case .allFonts:
             base = families
-        case .regularFonts:
+        case .unshittified:
+            // Hide families with no remaining work to do — i.e. every
+            // style already patched. Partially-patched families stay
+            // visible so the user can finish the rest.
             base = families.filter { !isFamilyFullyPatched($0) }
         case .enshittified:
+            // Read-only view of what's currently patched. Driven off the
+            // same `families` list so previews come from live patched
+            // bytes via `family.previewURL`. Restore actions live on the
+            // dedicated `.restoreOriginals` tab.
+            base = families.filter { isFamilyPartiallyPatched($0) }
+        case .restoreOriginals:
             return []  // handled via restoreFamilies path
         }
 
-        // Location filter
-        switch locationFilter {
+        // Location filter — the Enshittified tab hides the location chips
+        // (every patched system font lives at the same shadow path, so
+        // the split has no meaning there) so applying a stale filter
+        // from a previous tab would invisibly hide rows.
+        let effectiveLocationFilter: LocationFilter = (tab == .enshittified) ? .all : locationFilter
+        switch effectiveLocationFilter {
         case .all: break
         case .user:
             base = base.compactMap { f in

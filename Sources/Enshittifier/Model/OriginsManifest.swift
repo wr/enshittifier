@@ -1,7 +1,9 @@
 import Foundation
 
 /// On-disk record of what the installer backed up and where it came from.
-/// Persisted as `~/Desktop/Fonts (Backup)/origins.json`.
+/// Persisted as `~/Library/Font Backups/origins.json` (was
+/// `~/Desktop/Fonts (Backup)/origins.json` pre-W-194; `BackupMigrator`
+/// handles the one-shot move).
 ///
 /// Schema v2 (current): keyed by absolute original_path string so two
 /// fonts sharing a filename in different directories don't collide.
@@ -10,9 +12,10 @@ import Foundation
 /// `Fonts (Backup)/user/Cabin/Cabin-Regular.ttf`).
 ///
 /// Schema v1 (legacy, read-only): keyed by filename, no backup_path —
-/// the backup lived at `~/Desktop/Fonts (Backup)/<filename>` (flat).
-/// Old entries are migrated implicitly: on read they get a synthesized
-/// backup_path; on next write they're persisted in the v2 shape.
+/// the backup lived flat under whatever `Paths.backupDir` resolved to
+/// at the time. Old entries are migrated implicitly: on read they get
+/// a synthesized backup_path; on next write they're persisted in the
+/// v2 shape.
 struct OriginsManifest: Codable {
     struct Entry: Codable, Hashable {
         let filename: String

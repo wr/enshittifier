@@ -23,6 +23,7 @@ struct ContentView: View {
                 .toolbar { toolbarContent }
         }
         .task {
+            await runBackupMigration()
             await loadFonts()
             await loadRestoreFamilies()
         }
@@ -43,10 +44,12 @@ struct ContentView: View {
             VStack {
                 Button("") { model.tab = .allFonts }
                     .keyboardShortcut("1", modifiers: .command)
-                Button("") { model.tab = .regularFonts }
+                Button("") { model.tab = .unshittified }
                     .keyboardShortcut("2", modifiers: .command)
                 Button("") { model.tab = .enshittified }
                     .keyboardShortcut("3", modifiers: .command)
+                Button("") { model.tab = .restoreOriginals }
+                    .keyboardShortcut("4", modifiers: .command)
                 Button("") { searchFocused = true }
                     .keyboardShortcut("f", modifiers: .command)
             }
@@ -66,16 +69,22 @@ struct ContentView: View {
                 Label("All Fonts", systemImage: AppModel.Tab.allFonts.systemImage)
                     .badge(badge(for: .allFonts))
                     .tag(AppModel.Tab.allFonts)
-                Label("Regular Fonts", systemImage: AppModel.Tab.regularFonts.systemImage)
-                    .badge(badge(for: .regularFonts))
-                    .tag(AppModel.Tab.regularFonts)
+                Label("Un-shittified", systemImage: AppModel.Tab.unshittified.systemImage)
+                    .badge(badge(for: .unshittified))
+                    .tag(AppModel.Tab.unshittified)
                 Label {
-                    Text("Enshittified Fonts")
+                    Text("Enshittified")
                 } icon: {
                     PoopGlyph(size: 16, tint: .primary)
                 }
                 .badge(badge(for: .enshittified))
                 .tag(AppModel.Tab.enshittified)
+            }
+
+            Section("Restore") {
+                Label("Restore Originals", systemImage: AppModel.Tab.restoreOriginals.systemImage)
+                    .badge(badge(for: .restoreOriginals))
+                    .tag(AppModel.Tab.restoreOriginals)
             }
         }
         .listStyle(.sidebar)
@@ -84,9 +93,11 @@ struct ContentView: View {
     private func badge(for tab: AppModel.Tab) -> Int {
         switch tab {
         case .allFonts: return model.families.count
-        case .regularFonts:
+        case .unshittified:
             return model.families.filter { !model.isFamilyFullyPatched($0) }.count
-        case .enshittified: return model.restoreFamilies.count
+        case .enshittified:
+            return model.families.filter { model.isFamilyPartiallyPatched($0) }.count
+        case .restoreOriginals: return model.restoreFamilies.count
         }
     }
 
@@ -95,7 +106,10 @@ struct ContentView: View {
     @ViewBuilder
     private var detailWithFooter: some View {
         VStack(spacing: 0) {
-            if model.showFilterBar {
+            // Restore tab uses a separate data model (RestoreFamily) that
+            // doesn't carry activation/location state, so the FilterBar's
+            // chips don't apply there — hide the bar entirely.
+            if model.showFilterBar && model.tab != .restoreOriginals {
                 FilterBar()
                 Divider()
             }
@@ -117,13 +131,15 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         @Bindable var model = model
 
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                model.showFilterBar.toggle()
-            } label: {
-                Label("Filters", systemImage: filterIcon)
+        if model.tab != .restoreOriginals {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    model.showFilterBar.toggle()
+                } label: {
+                    Label("Filters", systemImage: filterIcon)
+                }
+                .help(model.showFilterBar ? "Hide filters" : "Show filters")
             }
-            .help(model.showFilterBar ? "Hide filters" : "Show filters")
         }
 
         ToolbarItem(placement: .primaryAction) {
@@ -187,7 +203,7 @@ struct ContentView: View {
     @ViewBuilder
     private var detail: some View {
         switch model.tab {
-        case .allFonts, .regularFonts:
+        case .allFonts, .unshittified, .enshittified:
             switch model.loadState {
             case .idle, .loading:
                 ContentUnavailableView {
@@ -198,13 +214,7 @@ struct ContentView: View {
             case .loaded:
                 if model.filteredFamilies.isEmpty {
                     if model.searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                        ContentUnavailableView {
-                            Label("Nothing here", systemImage: "checkmark.seal")
-                        } description: {
-                            Text(model.tab == .regularFonts
-                                 ? "Every font has been enshittified. Check Enshittified Fonts to restore them."
-                                 : "No fonts found.")
-                        }
+                        emptyState(for: model.tab)
                     } else {
                         ContentUnavailableView.search(text: model.searchQuery)
                     }
@@ -218,11 +228,11 @@ struct ContentView: View {
                     Text(message)
                 }
             }
-        case .enshittified:
+        case .restoreOriginals:
             if model.restoreFamilies.isEmpty {
                 ContentUnavailableView {
                     Label {
-                        Text("Nothing enshittified yet")
+                        Text("Nothing to restore")
                     } icon: {
                         PoopGlyph(size: 32, tint: .secondary)
                     }
@@ -233,6 +243,34 @@ struct ContentView: View {
                 ContentUnavailableView.search(text: model.searchQuery)
             } else {
                 RestoreGridView(families: filteredRestoreFamilies)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(for tab: AppModel.Tab) -> some View {
+        switch tab {
+        case .unshittified:
+            ContentUnavailableView {
+                Label("Nothing here", systemImage: "checkmark.seal")
+            } description: {
+                Text("Every font has been enshittified. Head to Restore Originals to bring them back.")
+            }
+        case .enshittified:
+            ContentUnavailableView {
+                Label {
+                    Text("Nothing enshittified yet")
+                } icon: {
+                    PoopGlyph(size: 32, tint: .secondary)
+                }
+            } description: {
+                Text("Patched fonts will show up here once you enshittify some.")
+            }
+        default:
+            ContentUnavailableView {
+                Label("Nothing here", systemImage: "checkmark.seal")
+            } description: {
+                Text("No fonts found.")
             }
         }
     }
@@ -250,44 +288,62 @@ struct ContentView: View {
 
             Spacer()
 
-            Button {
-                selectAll()
-            } label: {
-                Text("Select All")
+            if model.tab.isReadOnly {
+                Button {
+                    model.tab = .restoreOriginals
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Open Restore Originals")
+                            .fontWeight(.medium)
+                    }
                     .frame(height: 24)
-                    .padding(.horizontal, 8)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(!hasAnyItems)
-            .keyboardShortcut("a", modifiers: [.command])
-
-            Button {
-                selectNone()
-            } label: {
-                Text("Select None")
-                    .frame(height: 24)
-                    .padding(.horizontal, 8)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(!hasAnySelection)
-            .keyboardShortcut("a", modifiers: [.command, .shift])
-
-            Button(action: { Task { await primaryAction() } }) {
-                HStack(spacing: 8) {
-                    primaryActionIconView
-                    Text(primaryActionLabel)
-                        .fontWeight(.medium)
+                    .padding(.horizontal, 10)
                 }
-                .frame(height: 24)
-                .padding(.horizontal, 10)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(model.restoreFamilies.isEmpty)
+            } else {
+                Button {
+                    selectAll()
+                } label: {
+                    Text("Select All")
+                        .frame(height: 24)
+                        .padding(.horizontal, 8)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(!hasAnyItems)
+                .keyboardShortcut("a", modifiers: [.command])
+
+                Button {
+                    selectNone()
+                } label: {
+                    Text("Select None")
+                        .frame(height: 24)
+                        .padding(.horizontal, 8)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(!hasAnySelection)
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+
+                Button(action: { Task { await primaryAction() } }) {
+                    HStack(spacing: 8) {
+                        primaryActionIconView
+                        Text(primaryActionLabel)
+                            .fontWeight(.medium)
+                    }
+                    .frame(height: 24)
+                    .padding(.horizontal, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(primaryActionTint)
+                .keyboardShortcut(.defaultAction)
+                .disabled(primaryActionDisabled || installInFlight)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(primaryActionTint)
-            .keyboardShortcut(.defaultAction)
-            .disabled(primaryActionDisabled || installInFlight)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -295,7 +351,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var primaryActionIconView: some View {
-        if model.tab == .enshittified {
+        if model.tab == .restoreOriginals {
             Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
@@ -321,15 +377,18 @@ struct ContentView: View {
 
     private var subtitle: String {
         switch model.tab {
-        case .allFonts, .regularFonts:
-            let total = model.tab == .allFonts ? model.families.count
-                : model.families.filter { !model.isFamilyFullyPatched($0) }.count
-            let filtered = model.filteredFamilies.count
-            return countSummary(filtered: filtered, total: total)
+        case .allFonts:
+            return countSummary(filtered: model.filteredFamilies.count, total: model.families.count)
+        case .unshittified:
+            let total = model.families.filter { !model.isFamilyFullyPatched($0) }.count
+            return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .enshittified:
+            let total = model.families.filter { model.isFamilyPartiallyPatched($0) }.count
+            return "\(countSummary(filtered: model.filteredFamilies.count, total: total)) currently enshittified"
+        case .restoreOriginals:
             let total = model.restoreFamilies.count
             let filtered = filteredRestoreFamilies.count
-            return "\(countSummary(filtered: filtered, total: total)) currently enshittified"
+            return "\(countSummary(filtered: filtered, total: total)) ready to restore"
         }
     }
 
@@ -339,17 +398,25 @@ struct ContentView: View {
     }
 
     private var searchPrompt: String {
-        model.tab == .enshittified ? "Search enshittified" : "Search typefaces"
+        switch model.tab {
+        case .restoreOriginals: return "Search ready to restore"
+        case .enshittified: return "Search enshittified"
+        default: return "Search typefaces"
+        }
     }
 
     private var footerSummary: String {
         switch model.tab {
-        case .allFonts, .regularFonts:
+        case .allFonts, .unshittified:
             let n = model.selectedStyles.count
             if n == 0 { return "Nothing selected" }
             let fams = Set(model.selectedStyles.map(\.familyName)).count
             return "\(fams) famil\(fams == 1 ? "y" : "ies") · \(n) style\(n == 1 ? "" : "s") selected"
         case .enshittified:
+            let n = model.filteredFamilies.count
+            if n == 0 { return "Nothing patched" }
+            return "\(n) famil\(n == 1 ? "y" : "ies") patched"
+        case .restoreOriginals:
             let selected = model.selectedRestoreEntries
             if selected.isEmpty { return "Nothing selected" }
             let fams = Set(selected.map(\.familyName)).count
@@ -358,49 +425,47 @@ struct ContentView: View {
     }
 
     private var primaryActionLabel: String {
-        model.tab == .enshittified ? "Restore Originals" : "Enshittify Selected"
-    }
-
-    private var primaryActionIcon: String {
-        model.tab == .enshittified ? "arrow.uturn.backward.circle.fill" : "wand.and.stars"
-    }
-
-    private var primaryActionEmoji: String {
-        model.tab == .enshittified ? "↺" : "💩"
+        model.tab == .restoreOriginals ? "Restore Originals" : "Enshittify Selected"
     }
 
     private var primaryActionTint: Color {
-        model.tab == .enshittified ? .orange : .accentColor
+        // Strong visual difference between the destructive Enshittify
+        // action (warm warning) and the safe Restore action (clear undo).
+        model.tab == .restoreOriginals ? .green : .orange
     }
 
     private var primaryActionDisabled: Bool {
         switch model.tab {
-        case .allFonts, .regularFonts: return model.selectedStyles.isEmpty
-        case .enshittified: return model.selectedRestoreIDs.isEmpty
+        case .allFonts, .unshittified: return model.selectedStyles.isEmpty
+        case .enshittified: return true
+        case .restoreOriginals: return model.selectedRestoreIDs.isEmpty
         }
     }
 
     private var hasAnyItems: Bool {
         switch model.tab {
-        case .allFonts, .regularFonts: return !model.filteredFamilies.isEmpty
-        case .enshittified: return !filteredRestoreFamilies.isEmpty
+        case .allFonts, .unshittified, .enshittified: return !model.filteredFamilies.isEmpty
+        case .restoreOriginals: return !filteredRestoreFamilies.isEmpty
         }
     }
 
     private var hasAnySelection: Bool {
         switch model.tab {
-        case .allFonts, .regularFonts: return !model.selectedStyles.isEmpty
-        case .enshittified: return !model.selectedRestoreIDs.isEmpty
+        case .allFonts, .unshittified: return !model.selectedStyles.isEmpty
+        case .enshittified: return false
+        case .restoreOriginals: return !model.selectedRestoreIDs.isEmpty
         }
     }
 
     private func selectAll() {
         switch model.tab {
-        case .allFonts, .regularFonts:
+        case .allFonts, .unshittified:
             // Only select within the current filtered view
             let ids = Set(model.filteredFamilies.flatMap { $0.styles.map(\.id) })
             model.selectedStyleIDs.formUnion(ids)
         case .enshittified:
+            break
+        case .restoreOriginals:
             let ids = Set(filteredRestoreFamilies.flatMap { $0.entries.map(\.id) })
             model.selectedRestoreIDs.formUnion(ids)
         }
@@ -408,15 +473,17 @@ struct ContentView: View {
 
     private func selectNone() {
         switch model.tab {
-        case .allFonts, .regularFonts: model.selectedStyleIDs.removeAll()
-        case .enshittified: model.selectedRestoreIDs.removeAll()
+        case .allFonts, .unshittified: model.selectedStyleIDs.removeAll()
+        case .enshittified: break
+        case .restoreOriginals: model.selectedRestoreIDs.removeAll()
         }
     }
 
     private func primaryAction() async {
         switch model.tab {
-        case .allFonts, .regularFonts: await runInstall()
-        case .enshittified: await runRestore()
+        case .allFonts, .unshittified: await runInstall()
+        case .enshittified: break
+        case .restoreOriginals: await runRestore()
         }
     }
 
@@ -427,6 +494,19 @@ struct ContentView: View {
     }
 
     // MARK: - Loading
+
+    private func runBackupMigration() async {
+        let outcome = await Task.detached(priority: .userInitiated) {
+            BackupMigrator.migrateIfNeeded()
+        }.value
+        guard !outcome.errors.isEmpty else { return }
+        await MainActor.run {
+            resultAlert = ResultAlert(
+                title: "Couldn\u{2019}t move backups",
+                message: outcome.errors.joined(separator: "\n")
+            )
+        }
+    }
 
     private func loadFonts() async {
         model.loadState = .loading
@@ -466,6 +546,12 @@ struct ContentView: View {
 
         await MainActor.run {
             progress.markFinished()
+            // Clear the selection once styles are patched. Without this,
+            // the now-patched style IDs linger in selectedStyleIDs — the
+            // footer reads "N selected" while the tiles render locked
+            // with no checkmark, and Cmd-Return would re-invoke install
+            // on already-patched styles.
+            model.selectedStyleIDs.removeAll()
         }
         // Intentionally skip `loadFonts()` here: right after a fontd bounce
         // its registration is sparse for several seconds, so a full re-
@@ -536,6 +622,12 @@ struct ResultAlert: Identifiable {
 struct FilterBar: View {
     @Environment(AppModel.self) private var model
 
+    /// Every patched system font lives in `~/Library/Fonts/` (the
+    /// shadow copy is what we render and what fontd serves), so a
+    /// user/system location split has no meaning on the Enshittified
+    /// tab — hide those chips there.
+    private var showLocationFilter: Bool { model.tab != .enshittified }
+
     var body: some View {
         @Bindable var model = model
 
@@ -549,16 +641,18 @@ struct FilterBar: View {
                 }
             }
 
-            Divider()
-                .frame(height: 12)
-                .padding(.horizontal, 6)
+            if showLocationFilter {
+                Divider()
+                    .frame(height: 12)
+                    .padding(.horizontal, 6)
 
-            ForEach(AppModel.LocationFilter.allCases) { f in
-                FilterChip(
-                    label: shortLabel(for: f),
-                    isSelected: model.locationFilter == f
-                ) {
-                    model.locationFilter = f
+                ForEach(AppModel.LocationFilter.allCases) { f in
+                    FilterChip(
+                        label: shortLabel(for: f),
+                        isSelected: model.locationFilter == f
+                    ) {
+                        model.locationFilter = f
+                    }
                 }
             }
 

@@ -20,6 +20,7 @@
 		6671D91040D9E624F9898359 /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE32B3BD49955A172728B94 /* InstallProgressView.swift */; };
 		6F121A521F3E65801250BA6B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 21651E06804C442E14FA641F /* AppIcon.icon */; };
 		80A5D0E96BAC7D1D8AE31E90 /* FontStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C12B06217D11243A8D1541C /* FontStyle.swift */; };
+		878574463EBA32F2C484D9BF /* BackupMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54399D844122483176A964B /* BackupMigrator.swift */; };
 		983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F2CE30F03AF4CE27F1B6C96 /* CmapTablePatcher.swift */; };
 		9B7C617EF617BA9D6D20AB13 /* InstallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E7A54473300638DD9E408A /* InstallService.swift */; };
 		9FE72729A470FC3C63EB30E5 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0554EB7DC57F5F7E18ADA5F5 /* AppModel.swift */; };
@@ -53,6 +54,7 @@
 		8B8064CCC2C0FCE211725CFC /* PoopGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoopGlyph.swift; sourceTree = "<group>"; };
 		9174B0B2F4FF77A8AB1B3508 /* Patcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Patcher.swift; sourceTree = "<group>"; };
 		93ADB94AB3ED8503D42E9838 /* OriginsManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginsManifest.swift; sourceTree = "<group>"; };
+		B54399D844122483176A964B /* BackupMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupMigrator.swift; sourceTree = "<group>"; };
 		B754CA80BC1EFAB148852705 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		B8E286CAFE35F06E6C7FF9F9 /* Enshittifier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Enshittifier.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2AE81B2D6B9AF5CAD7F49A7 /* OpenTypeFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenTypeFile.swift; sourceTree = "<group>"; };
@@ -158,6 +160,7 @@
 		BA80A581FB267B521B757157 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B54399D844122483176A964B /* BackupMigrator.swift */,
 				3CA00F92D0D8F293D3E03C3D /* DataFontCache.swift */,
 				C378C94606899D14056904F5 /* FontCacheFlusher.swift */,
 				E138E9D43C598A47A6B2EFC8 /* FontDiscovery.swift */,
@@ -256,6 +259,7 @@
 			files = (
 				A92F27989DFCFE0EA6EB1327 /* App.swift in Sources */,
 				9FE72729A470FC3C63EB30E5 /* AppModel.swift in Sources */,
+				878574463EBA32F2C484D9BF /* BackupMigrator.swift in Sources */,
 				A82C989BAC68FF478F365218 /* BinaryReader.swift in Sources */,
 				983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */,
 				CEC4D1DACDE5AE102070826B /* ContentView.swift in Sources */,

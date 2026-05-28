@@ -40,10 +40,18 @@ private struct FamilyTile: View {
     let family: FontFamily
 
     private var selection: SelectionState { model.selectionState(for: family) }
-    private var isSelected: Bool { selection != .off }
+    private var isSelected: Bool { selection != .off && !isLocked }
     private var isFamilyInactive: Bool {
         !family.styles.isEmpty && family.styles.allSatisfy { !$0.isActivated }
     }
+    private var isPatched: Bool { model.isFamilyPartiallyPatched(family) }
+    /// Lock the family when there's nothing left to do — either the tab
+    /// is read-only or every style is already patched. Partially-patched
+    /// families stay tappable on the install tabs so the user can finish
+    /// the remaining styles; `InstallService.installOne` is idempotent
+    /// on its backup step (skips when a backup already exists) so a
+    /// mixed selection re-applies safely.
+    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -56,11 +64,15 @@ private struct FamilyTile: View {
                 isSelected: isSelected,
                 selectionState: selection,
                 tileHeight: model.tileSize * 0.78,
-                isActivated: !isFamilyInactive
+                isActivated: !isFamilyInactive,
+                isPatched: isPatched
             )
             .id(model.fontGeneration)
             .contentShape(Rectangle())
-            .onTapGesture { model.toggleFamily(family) }
+            .onTapGesture {
+                guard !isLocked else { return }
+                model.toggleFamily(family)
+            }
             .help(family.name)
             .contextMenu { familyContextMenu(for: family) }
 
@@ -92,15 +104,30 @@ private struct FamilyListRow: View {
     let family: FontFamily
 
     private var selection: SelectionState { model.selectionState(for: family) }
-    private var isSelected: Bool { selection != .off }
     private var isFamilyInactive: Bool {
         !family.styles.isEmpty && family.styles.allSatisfy { !$0.isActivated }
     }
+    private var isPatched: Bool { model.isFamilyPartiallyPatched(family) }
+    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            SelectionCircle(state: selection, onTap: { model.toggleFamily(family) }, size: 26)
-                .padding(.top, 6)
+            if !isLocked {
+                SelectionCircle(state: selection, onTap: { model.toggleFamily(family) }, size: 26)
+                    .padding(.top, 6)
+            } else {
+                // Keep the row's leading column reserved so the text
+                // baseline doesn't shift between locked and unlocked
+                // rows, and surface a small lock affordance so the row
+                // doesn't look like dead pixels — discoverability for
+                // right-click "Restore Original…" is otherwise nil.
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 26, height: 26)
+                    .padding(.top, 6)
+                    .help("Already enshittified. Right-click to restore.")
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(listSample)
@@ -121,6 +148,9 @@ private struct FamilyListRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     LocationBadge(location: locationKind, compact: true)
+                    if isPatched {
+                        PatchedBadge(compact: true)
+                    }
                 }
             }
 
@@ -128,7 +158,10 @@ private struct FamilyListRow: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .onTapGesture { model.toggleFamily(family) }
+        .onTapGesture {
+            guard !isLocked else { return }
+            model.toggleFamily(family)
+        }
         .contextMenu { familyContextMenu(for: family) }
     }
 
@@ -320,18 +353,32 @@ private struct EnvironmentAwareInstallMenu: View {
     @Environment(AppModel.self) private var model
     let family: FontFamily
 
+    private var isLocked: Bool {
+        model.tab.isReadOnly || model.isFamilyFullyPatched(family)
+    }
+
     var body: some View {
-        Button {
-            for s in family.styles { model.selectedStyleIDs.insert(s.id) }
-        } label: {
-            Label("Select Family", systemImage: "checkmark.circle")
+        if !isLocked {
+            Button {
+                for s in family.styles { model.selectedStyleIDs.insert(s.id) }
+            } label: {
+                Label("Select Family", systemImage: "checkmark.circle")
+            }
+            Button {
+                for s in family.styles { model.selectedStyleIDs.remove(s.id) }
+            } label: {
+                Label("Deselect Family", systemImage: "circle")
+            }
+            Divider()
         }
-        Button {
-            for s in family.styles { model.selectedStyleIDs.remove(s.id) }
-        } label: {
-            Label("Deselect Family", systemImage: "circle")
+        if model.isFamilyPartiallyPatched(family) {
+            Button {
+                jumpToRestore(family: family, model: model)
+            } label: {
+                Label("Restore Original\u{2026}", systemImage: "arrow.uturn.backward")
+            }
+            Divider()
         }
-        Divider()
         Button {
             showInFontBook(family.styles.first?.url)
         } label: {
@@ -344,6 +391,14 @@ private struct EnvironmentAwareInstallMenu: View {
             Label("Show in Finder", systemImage: "magnifyingglass")
         }
         .disabled(family.styles.first == nil)
+    }
+}
+
+@MainActor
+private func jumpToRestore(family: FontFamily, model: AppModel) {
+    model.tab = .restoreOriginals
+    if let restore = model.restoreFamilies.first(where: { $0.name == family.name }) {
+        model.selectedRestoreIDs.formUnion(restore.entries.map(\.id))
     }
 }
 
@@ -457,6 +512,45 @@ private struct LocationBadge: View {
     }
 }
 
+/// "Patched" pill — pairs the in-app PoopGlyph with the word so the
+/// badge reads at a glance on dense grids. Violet palette so it's
+/// visually distinct from `LocationBadge`'s amber "System font" chip
+/// (the two appear side-by-side on shadowed system fonts).
+struct PatchedBadge: View {
+    var compact: Bool = false
+
+    private var chipBackground: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            if appearance.isDark {
+                return NSColor(srgbRed: 0.55, green: 0.35, blue: 0.85, alpha: 0.30)
+            }
+            return NSColor(srgbRed: 0.92, green: 0.87, blue: 0.99, alpha: 1.0)
+        })
+    }
+
+    private var chipForeground: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            if appearance.isDark {
+                return NSColor(srgbRed: 0.82, green: 0.72, blue: 1.00, alpha: 1.0)
+            }
+            return NSColor(srgbRed: 0.38, green: 0.18, blue: 0.62, alpha: 1.0)
+        })
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            PoopGlyph(size: compact ? 10 : 12, tint: chipForeground)
+            Text("Patched")
+                .font(.system(size: compact ? 9 : 10, weight: .semibold))
+                .foregroundStyle(chipForeground)
+        }
+        .padding(.horizontal, compact ? 6 : 8)
+        .padding(.vertical, compact ? 2 : 3)
+        .background(Capsule().fill(chipBackground))
+        .help("This family has been enshittified")
+    }
+}
+
 private extension NSCursor {
     /// AppKit ships a `?` help cursor but exposes it only via a private
     /// selector. Falls back to the pointing-hand cursor if unavailable.
@@ -522,6 +616,7 @@ struct FontSampleTile: View {
     let selectionState: SelectionState
     var tileHeight: CGFloat = 120
     var isActivated: Bool = true
+    var isPatched: Bool = false
 
     var body: some View {
         ZStack {
@@ -548,7 +643,7 @@ struct FontSampleTile: View {
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
 
-            // Bottom-left style count + location pill
+            // Bottom-left style count + location/patched pills
             VStack {
                 Spacer()
                 HStack(spacing: 6) {
@@ -556,6 +651,9 @@ struct FontSampleTile: View {
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                     Spacer()
+                    if isPatched {
+                        PatchedBadge(compact: true)
+                    }
                     LocationBadge(location: location, compact: true)
                 }
                 .padding(.horizontal, 10)
