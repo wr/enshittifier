@@ -62,17 +62,19 @@ enum RestoreService {
 
     static func restore(
         entries: [RestoreEntry],
+        isCancelled: @escaping @Sendable () -> Bool = { false },
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) async -> RestoreResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(returning: restoreSync(entries: entries, progress: progress))
+                continuation.resume(returning: restoreSync(entries: entries, isCancelled: isCancelled, progress: progress))
             }
         }
     }
 
     private static func restoreSync(
         entries: [RestoreEntry],
+        isCancelled: @escaping @Sendable () -> Bool,
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) -> RestoreResult {
         var result = RestoreResult()
@@ -82,6 +84,7 @@ enum RestoreService {
         progress(.start(total: entries.count))
 
         for (index, entry) in entries.enumerated() {
+            if isCancelled() { break }
             progress(.progress(index: index, name: entry.filename))
 
             do {

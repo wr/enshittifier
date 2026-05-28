@@ -41,14 +41,17 @@ struct FamilyGridView: View {
                     }
                 }
                 .padding(20)
+                // A click on the gaps/padding between tiles lands on this
+                // backing layer (tiles sit in front and win their own
+                // taps) and clears the selection. Must live on the grid
+                // content, not the ScrollView — a background on the
+                // ScrollView never receives these taps.
+                .background(
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.clearSelection() }
+                )
             }
-            // A click on empty space (gaps, padding, below the last row)
-            // falls through to this background and clears the selection.
-            .background(
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { model.clearSelection() }
-            )
             .coordinateSpace(name: Self.space)
             .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
             .overlay(alignment: .topLeading) { marqueeRect }
@@ -303,12 +306,12 @@ struct RestoreGridView: View {
                     }
                 }
                 .padding(20)
+                .background(
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.clearSelection() }
+                )
             }
-            .background(
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { model.clearSelection() }
-            )
         } else {
             List {
                 ForEach(families) { family in
@@ -754,14 +757,14 @@ struct FontSampleTile: View {
                 .lineLimit(3)
                 .minimumScaleFactor(0.35)
                 .foregroundStyle(.primary)
-                .blur(radius: isReloading ? 4 : 0)
-                .opacity(isReloading ? 0.25 : (isActivated ? 1.0 : 0.35))
+                .opacity(isReloading ? 0.12 : (isActivated ? 1.0 : 0.35))
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
 
             if isReloading {
                 ProgressView()
-                    .controlSize(.small)
+                    .controlSize(.large)
+                    .scaleEffect(1.8)
                     .transition(.opacity)
             }
 

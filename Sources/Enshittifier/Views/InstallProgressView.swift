@@ -1,6 +1,22 @@
 import SwiftUI
 import Observation
 
+/// Thread-safe one-way cancellation flag. The patch/restore loops run on
+/// a background queue and poll `isCancelled` between fonts; the Cancel
+/// button (main actor) sets it. `@unchecked Sendable` is sound because
+/// every access is guarded by the lock.
+final class CancellationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _cancelled = false
+    var isCancelled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _cancelled
+    }
+    func cancel() {
+        lock.lock(); _cancelled = true; lock.unlock()
+    }
+}
+
 @Observable
 final class InstallProgress: Identifiable {
     let id = UUID()
@@ -15,6 +31,9 @@ final class InstallProgress: Identifiable {
     /// Current label under the title: the font being patched, or the
     /// active finalization phase.
     var currentLabel: String = ""
+    /// Set when the user hits Cancel — the loop will stop after the
+    /// in-flight font and finalize whatever was done so far.
+    var cancelling: Bool = false
     var fontTotal: Int = 0
     var fontsCompleted: Int = 0
     /// How many finalization phases have arrived (drives the tail of the
@@ -107,6 +126,8 @@ enum InstallUpdate {
 struct InstallProgressView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var progress: InstallProgress
+    /// Called when the user hits Cancel while the op is in flight.
+    var onCancel: () -> Void = {}
 
     private var isRestore: Bool { progress.action == "Restoring" }
     private var verb: String { isRestore ? "Restoring" : "Enshittifying" }
@@ -121,9 +142,22 @@ struct InstallProgressView: View {
             header
                 .padding(.horizontal, 28)
                 .padding(.top, 28)
-                .padding(.bottom, hasFailures ? 18 : 28)
+                .padding(.bottom, hasFailures ? 18 : 22)
 
-            if hasFailures {
+            if !progress.finished {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        progress.cancelling = true
+                        onCancel()
+                    }
+                    .controlSize(.large)
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(progress.cancelling)
+                }
+                .padding(16)
+            } else if hasFailures {
                 Divider()
                 failureList
                 Divider()
@@ -211,6 +245,9 @@ struct InstallProgressView: View {
     }
 
     private var subtitle: String {
+        if progress.cancelling && !progress.finished {
+            return "Cancelling\u{2026}"
+        }
         switch progress.stage {
         case .patching:
             return progress.currentLabel.isEmpty ? "Preparing\u{2026}" : progress.currentLabel

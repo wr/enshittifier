@@ -5,6 +5,7 @@ struct ContentView: View {
 
     @State private var installInFlight = false
     @State private var installProgress: InstallProgress?
+    @State private var installCancelFlag: CancellationFlag?
     @State private var migrationProgress: MigrationProgress?
     @State private var resultAlert: ResultAlert?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -29,7 +30,9 @@ struct ContentView: View {
             await loadRestoreFamilies()
         }
         .sheet(item: $installProgress) { progress in
-            InstallProgressView(progress: progress)
+            InstallProgressView(progress: progress) {
+                installCancelFlag?.cancel()
+            }
         }
         .sheet(item: $migrationProgress) { progress in
             MigrationProgressView(progress: progress)
@@ -558,7 +561,9 @@ struct ContentView: View {
 
         let progress = InstallProgress()
         installProgress = progress
-        // Blur + spin the affected tiles for the whole operation. The grid
+        let cancel = CancellationFlag()
+        installCancelFlag = cancel
+        // Dim + spin the affected tiles for the whole operation. The grid
         // is dimmed-but-visible behind the sheet, so the spinner reads as
         // "applying" in real time (DataFontCache renders from bytes, not
         // fontd, so this is safe even during the font-service bounce).
@@ -566,7 +571,10 @@ struct ContentView: View {
         // generation at the very end.
         model.reloadingFamilyIDs = affected
 
-        let result = await InstallService.install(styles: selected) { update in
+        let result = await InstallService.install(
+            styles: selected,
+            isCancelled: { cancel.isCancelled }
+        ) { update in
             Task { @MainActor in
                 progress.apply(update)
             }
@@ -606,9 +614,14 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
+        let cancel = CancellationFlag()
+        installCancelFlag = cancel
         model.reloadingFamilyIDs = affected
 
-        let result = await RestoreService.restore(entries: selected) { update in
+        let result = await RestoreService.restore(
+            entries: selected,
+            isCancelled: { cancel.isCancelled }
+        ) { update in
             Task { @MainActor in
                 progress.apply(update)
             }
@@ -639,9 +652,14 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
+        let cancel = CancellationFlag()
+        installCancelFlag = cancel
         model.reloadingFamilyIDs = affected
 
-        let result = await RestoreService.restore(entries: entries) { update in
+        let result = await RestoreService.restore(
+            entries: entries,
+            isCancelled: { cancel.isCancelled }
+        ) { update in
             Task { @MainActor in
                 progress.apply(update)
             }

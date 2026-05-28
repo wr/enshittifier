@@ -26,11 +26,12 @@ enum InstallService {
     /// the bundled Python patching engine.
     static func install(
         styles: [FontStyle],
+        isCancelled: @escaping @Sendable () -> Bool = { false },
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) async -> InstallResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let result = installSync(styles: styles, progress: progress)
+                let result = installSync(styles: styles, isCancelled: isCancelled, progress: progress)
                 continuation.resume(returning: result)
             }
         }
@@ -38,6 +39,7 @@ enum InstallService {
 
     private static func installSync(
         styles: [FontStyle],
+        isCancelled: @escaping @Sendable () -> Bool,
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) -> InstallResult {
         var result = InstallResult()
@@ -55,6 +57,9 @@ enum InstallService {
         progress(.start(total: styles.count))
 
         for (index, style) in styles.enumerated() {
+            // Cooperative cancel: stop before the next font, keep what's
+            // already patched, and let finalization run for those.
+            if isCancelled() { break }
             progress(.progress(index: index, name: style.filename))
 
             do {
