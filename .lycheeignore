@@ -10,3 +10,8 @@
 # Enshittifier.dmg; until that ships, this link 404s but is the URL the
 # site should use long-term.
 .*/releases/latest/download/Enshittifier\.dmg
+
+# The Chrome Web Store listing 301-redirects the bare /detail/<id> URL to
+# its canonical title-slug form. We keep the slugless URL (durable — it
+# survives listing-title changes), so lychee sees a 301 it won't follow.
+https://chromewebstore\.google\.com/detail/aphiafiemboinkpikgndmiejehdnpofo

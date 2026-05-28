@@ -3,6 +3,28 @@
    Zine / shitpost energy: cream paper, serif display, mono body.
    ───────────────────────────────────────────────────────────────────── */
 
+/* Self-hosted Literata (latin variable woff2, weights up to 900).
+   Google's literary serif — the closest freely-hostable analog to Apple's
+   New York (moderate contrast, sturdy bracketed serifs). One file each for
+   roman + italic; pinned so the display headings render identically across
+   browsers instead of falling back to system ui-serif. */
+@font-face {
+  font-family: "Literata";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("fonts/literata-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Literata";
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("fonts/literata-latin-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light dark;
 
@@ -66,7 +88,7 @@ strong { font-weight: 700; }
 }
 
 .display, h1, h2 {
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 800;
   letter-spacing: -0.015em;
   line-height: 1.02;
@@ -117,7 +139,7 @@ strong { font-weight: 700; }
 [data-mode="poop"] .d-swap .d-p { opacity: 1; }
 
 .swap .ai-t {
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 800;
   font-style: italic;
   color: var(--accent);
@@ -145,7 +167,7 @@ strong { font-weight: 700; }
 }
 
 .d-swap .d-t {
-  font-family: ui-serif, Georgia, serif;
+  font-family: "Literata", ui-serif, Georgia, serif;
   color: inherit;
 }
 .d-swap .d-p {
@@ -234,7 +256,7 @@ strong { font-weight: 700; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 800;
   font-size: 24px;
   line-height: 1;
@@ -315,7 +337,7 @@ strong { font-weight: 700; }
 }
 
 .hero-h {
-  font-size: clamp(60px, 13vw, 180px);
+  font-size: clamp(52px, 9vw, 120px);
   font-weight: 900;
   margin: 0 0 clamp(28px, 4vw, 44px);
   letter-spacing: -0.035em;
@@ -471,7 +493,7 @@ main {
 
 .pick-name {
   display: block;
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 800;
   font-size: clamp(22px, 3.4vw, 30px);
   line-height: 1.08;
@@ -529,6 +551,18 @@ main {
   overflow: hidden;
 }
 
+/* App screenshot — a macOS window capture with transparent padding and its
+   own soft baked shadow, so no border/clip; just lift it off the cream. */
+.shot {
+  margin: clamp(28px, 4vw, 40px) 0;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 28px rgba(26, 20, 16, 0.16));
+}
+
 .demo-chrome {
   display: flex;
   align-items: center;
@@ -561,7 +595,7 @@ main {
 .demo-body {
   margin: 0;
   padding: 22px 26px;
-  font-family: ui-serif, Georgia, serif;
+  font-family: "Literata", ui-serif, Georgia, serif;
   font-size: 16px;
   line-height: 1.55;
 }
@@ -691,7 +725,7 @@ footer a { color: var(--muted); }
 }
 
 .page h2 {
-  font-family: ui-serif, Georgia, serif;
+  font-family: "Literata", ui-serif, Georgia, serif;
   font-size: 24px;
   margin: 36px 0 12px;
 }
@@ -718,7 +752,7 @@ footer a { color: var(--muted); }
   padding: clamp(80px, 16vw, 180px) 24px;
 }
 .gone .four {
-  font-family: ui-serif, Georgia, serif;
+  font-family: "Literata", ui-serif, Georgia, serif;
   font-size: clamp(100px, 22vw, 280px);
   font-weight: 900;
   line-height: 0.9;
