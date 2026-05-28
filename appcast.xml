@@ -6,6 +6,14 @@
     <description>Updates for Enshittifier</description>
     <language>en</language>
     <item>
+      <title>Enshittifier 0.2.0</title>
+      <pubDate>Thu, 28 May 2026 14:09:29 +0000</pubDate>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/wr/enshittifier/releases/download/v0.2.0/Enshittifier.dmg" type="application/octet-stream" length="65264031" sparkle:edSignature="2b4lrVFGWh+Tr8HMOj/Ia5+KZmjdMo3cFPTSiqslZb8UGWP8WUuPch/ZFLe3fXEPgMsBfbN89DDcyl/LsF42DA==" />
+    </item>
+    <item>
       <title>Enshittifier 0.1.0</title>
       <pubDate>Thu, 28 May 2026 11:31:00 +0000</pubDate>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
