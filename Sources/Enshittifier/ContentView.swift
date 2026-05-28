@@ -5,7 +5,6 @@ struct ContentView: View {
 
     @State private var installInFlight = false
     @State private var installProgress: InstallProgress?
-    @State private var migrationProgress: MigrationProgress?
     @State private var resultAlert: ResultAlert?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
@@ -24,15 +23,11 @@ struct ContentView: View {
                 .toolbar { toolbarContent }
         }
         .task {
-            await runBackupMigration()
             await loadFonts()
             await loadRestoreFamilies()
         }
         .sheet(item: $installProgress) { progress in
             InstallProgressView(progress: progress)
-        }
-        .sheet(item: $migrationProgress) { progress in
-            MigrationProgressView(progress: progress)
         }
         .alert(item: $resultAlert) { alert in
             Alert(
@@ -498,42 +493,6 @@ struct ContentView: View {
     }
 
     // MARK: - Loading
-
-    private func runBackupMigration() async {
-        let progress = MigrationProgress()
-
-        // Delay-present: only show the sheet if the migration is still
-        // running after 300ms. The common case is an instant no-op (no
-        // legacy folder, no stale manifest paths), and we don't want the
-        // sheet to flash on every launch. If the migrator finishes first
-        // we cancel the presenter before it ever sets the binding.
-        let presenter = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
-            migrationProgress = progress
-        }
-
-        let outcome = await Task.detached(priority: .userInitiated) {
-            BackupMigrator.migrateIfNeeded { label in
-                Task { @MainActor in progress.phase = label }
-            }
-        }.value
-
-        // Await the presenter so its (possible) "show the sheet" write
-        // happens-before our dismiss — otherwise a presenter that wins the
-        // race after we set nil would leave the sheet stuck open.
-        presenter.cancel()
-        await presenter.value
-        await MainActor.run { migrationProgress = nil }
-
-        guard !outcome.errors.isEmpty else { return }
-        await MainActor.run {
-            resultAlert = ResultAlert(
-                title: "Couldn\u{2019}t move backups",
-                message: outcome.errors.joined(separator: "\n")
-            )
-        }
-    }
 
     private func loadFonts() async {
         model.loadState = .loading
