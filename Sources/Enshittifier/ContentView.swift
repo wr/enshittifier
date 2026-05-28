@@ -5,6 +5,7 @@ struct ContentView: View {
 
     @State private var installInFlight = false
     @State private var installProgress: InstallProgress?
+    @State private var installCancelFlag: CancellationFlag?
     @State private var resultAlert: ResultAlert?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
@@ -27,7 +28,9 @@ struct ContentView: View {
             await loadRestoreFamilies()
         }
         .sheet(item: $installProgress) { progress in
-            InstallProgressView(progress: progress)
+            InstallProgressView(progress: progress) {
+                installCancelFlag?.cancel()
+            }
         }
         .alert(item: $resultAlert) { alert in
             Alert(
@@ -78,10 +81,13 @@ struct ContentView: View {
                 }
                 .badge(badge(for: .enshittified))
                 .tag(AppModel.Tab.enshittified)
-            }
 
-            Section("Restore") {
-                Label("Restore Originals", systemImage: AppModel.Tab.restoreOriginals.systemImage)
+                // Font Backups lives with the library but is set apart by a
+                // divider — it's the restore surface, not a browse list.
+                Divider()
+                    .padding(.vertical, 2)
+
+                Label("Font Backups", systemImage: AppModel.Tab.restoreOriginals.systemImage)
                     .badge(badge(for: .restoreOriginals))
                     .tag(AppModel.Tab.restoreOriginals)
             }
@@ -238,10 +244,10 @@ struct ContentView: View {
                 } description: {
                     Text("Patch some fonts first \u{2014} they\u{2019}ll show up here ready to restore.")
                 }
-            } else if filteredRestoreFamilies.isEmpty {
+            } else if model.filteredRestoreFamilies.isEmpty {
                 ContentUnavailableView.search(text: model.searchQuery)
             } else {
-                RestoreGridView(families: filteredRestoreFamilies)
+                RestoreGridView(families: model.filteredRestoreFamilies)
             }
         }
     }
@@ -287,62 +293,48 @@ struct ContentView: View {
 
             Spacer()
 
-            if model.tab.isReadOnly {
-                Button {
-                    model.tab = .restoreOriginals
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Open Restore Originals")
-                            .fontWeight(.medium)
-                    }
+            Button {
+                selectAll()
+            } label: {
+                Text("Select All")
                     .frame(height: 24)
-                    .padding(.horizontal, 10)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(model.restoreFamilies.isEmpty)
-            } else {
-                Button {
-                    selectAll()
-                } label: {
-                    Text("Select All")
-                        .frame(height: 24)
-                        .padding(.horizontal, 8)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(!hasAnyItems)
-                .keyboardShortcut("a", modifiers: [.command])
-
-                Button {
-                    selectNone()
-                } label: {
-                    Text("Select None")
-                        .frame(height: 24)
-                        .padding(.horizontal, 8)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .disabled(!hasAnySelection)
-                .keyboardShortcut("a", modifiers: [.command, .shift])
-
-                Button(action: { Task { await primaryAction() } }) {
-                    HStack(spacing: 8) {
-                        primaryActionIconView
-                        Text(primaryActionLabel)
-                            .fontWeight(.medium)
-                    }
-                    .frame(height: 24)
-                    .padding(.horizontal, 10)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(primaryActionTint)
-                .keyboardShortcut(.defaultAction)
-                .disabled(primaryActionDisabled || installInFlight)
+                    .padding(.horizontal, 8)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(!hasAnyItems)
+            .keyboardShortcut("a", modifiers: [.command])
+
+            Button {
+                selectNone()
+            } label: {
+                Text("Select None")
+                    .frame(height: 24)
+                    .padding(.horizontal, 8)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(!hasAnySelection)
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+
+            Button(action: { Task { await primaryAction() } }) {
+                HStack(spacing: 8) {
+                    primaryActionIconView
+                        // The icon uses an explicit white fill that won't
+                        // dim with the button the way the text label does,
+                        // so fade it manually to match the disabled state.
+                        .opacity(primaryButtonDisabled ? 0.4 : 1)
+                    Text(primaryActionLabel)
+                        .fontWeight(.medium)
+                }
+                .frame(height: 24)
+                .padding(.horizontal, 10)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(primaryActionTint)
+            .keyboardShortcut(.defaultAction)
+            .disabled(primaryButtonDisabled)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -350,7 +342,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var primaryActionIconView: some View {
-        if model.tab == .restoreOriginals {
+        if model.tab.selectsForRestore {
             Image(systemName: "arrow.uturn.backward")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
@@ -383,11 +375,11 @@ struct ContentView: View {
             return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .enshittified:
             let total = model.families.filter { model.isFamilyPartiallyPatched($0) }.count
-            return "\(countSummary(filtered: model.filteredFamilies.count, total: total)) currently enshittified"
+            return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .restoreOriginals:
             let total = model.restoreFamilies.count
-            let filtered = filteredRestoreFamilies.count
-            return "\(countSummary(filtered: filtered, total: total)) ready to restore"
+            let filtered = model.filteredRestoreFamilies.count
+            return countSummary(filtered: filtered, total: total)
         }
     }
 
@@ -412,9 +404,10 @@ struct ContentView: View {
             let fams = Set(model.selectedStyles.map(\.familyName)).count
             return "\(fams) famil\(fams == 1 ? "y" : "ies") · \(n) style\(n == 1 ? "" : "s") selected"
         case .enshittified:
-            let n = model.filteredFamilies.count
-            if n == 0 { return "Nothing patched" }
-            return "\(n) famil\(n == 1 ? "y" : "ies") patched"
+            let n = model.selectedStyles.count
+            if n == 0 { return "Nothing selected" }
+            let fams = Set(model.selectedStyles.map(\.familyName)).count
+            return "\(fams) famil\(fams == 1 ? "y" : "ies") · \(n) style\(n == 1 ? "" : "s") selected"
         case .restoreOriginals:
             let selected = model.selectedRestoreEntries
             if selected.isEmpty { return "Nothing selected" }
@@ -424,19 +417,27 @@ struct ContentView: View {
     }
 
     private var primaryActionLabel: String {
-        model.tab == .restoreOriginals ? "Restore Originals" : "Enshittify Selected"
+        model.tab.selectsForRestore ? "Restore" : "Enshittify Selected"
     }
 
     private var primaryActionTint: Color {
         // Strong visual difference between the destructive Enshittify
-        // action (warm warning) and the safe Restore action (clear undo).
-        model.tab == .restoreOriginals ? .green : .orange
+        // action (warm warning) and the safe Restore action (calm purple).
+        model.tab.selectsForRestore ? Self.restorePurple : .orange
+    }
+
+    /// Restore action accent — a deep violet that reads as deliberate and
+    /// distinct from the orange Enshittify action while staying legible
+    /// behind white text/icon on the prominent button.
+    private static let restorePurple = Color(red: 0.45, green: 0.30, blue: 0.78)
+
+    private var primaryButtonDisabled: Bool {
+        primaryActionDisabled || installInFlight
     }
 
     private var primaryActionDisabled: Bool {
         switch model.tab {
-        case .allFonts, .unshittified: return model.selectedStyles.isEmpty
-        case .enshittified: return true
+        case .allFonts, .unshittified, .enshittified: return model.selectedStyles.isEmpty
         case .restoreOriginals: return model.selectedRestoreIDs.isEmpty
         }
     }
@@ -444,36 +445,36 @@ struct ContentView: View {
     private var hasAnyItems: Bool {
         switch model.tab {
         case .allFonts, .unshittified, .enshittified: return !model.filteredFamilies.isEmpty
-        case .restoreOriginals: return !filteredRestoreFamilies.isEmpty
+        case .restoreOriginals: return !model.filteredRestoreFamilies.isEmpty
         }
     }
 
     private var hasAnySelection: Bool {
         switch model.tab {
-        case .allFonts, .unshittified: return !model.selectedStyles.isEmpty
-        case .enshittified: return false
+        case .allFonts, .unshittified, .enshittified: return !model.selectedStyles.isEmpty
         case .restoreOriginals: return !model.selectedRestoreIDs.isEmpty
         }
     }
 
     private func selectAll() {
         switch model.tab {
-        case .allFonts, .unshittified:
-            // Only select within the current filtered view
-            let ids = Set(model.filteredFamilies.flatMap { $0.styles.map(\.id) })
+        case .allFonts, .unshittified, .enshittified:
+            // Only select within the current filtered view. On the
+            // install tabs this skips fully-patched (locked) families;
+            // on Enshittified everything shown is patched and selectable.
+            let ids = Set(model.filteredFamilies
+                .filter { model.tab == .enshittified || !model.isFamilyFullyPatched($0) }
+                .flatMap { $0.styles.map(\.id) })
             model.selectedStyleIDs.formUnion(ids)
-        case .enshittified:
-            break
         case .restoreOriginals:
-            let ids = Set(filteredRestoreFamilies.flatMap { $0.entries.map(\.id) })
+            let ids = Set(model.filteredRestoreFamilies.flatMap { $0.entries.map(\.id) })
             model.selectedRestoreIDs.formUnion(ids)
         }
     }
 
     private func selectNone() {
         switch model.tab {
-        case .allFonts, .unshittified: model.selectedStyleIDs.removeAll()
-        case .enshittified: break
+        case .allFonts, .unshittified, .enshittified: model.selectedStyleIDs.removeAll()
         case .restoreOriginals: model.selectedRestoreIDs.removeAll()
         }
     }
@@ -481,16 +482,11 @@ struct ContentView: View {
     private func primaryAction() async {
         switch model.tab {
         case .allFonts, .unshittified: await runInstall()
-        case .enshittified: break
+        case .enshittified: await runRestoreFromEnshittified()
         case .restoreOriginals: await runRestore()
         }
     }
 
-    private var filteredRestoreFamilies: [RestoreFamily] {
-        let q = model.searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return model.restoreFamilies }
-        return model.restoreFamilies.filter { $0.name.lowercased().contains(q) }
-    }
 
     // MARK: - Loading
 
@@ -517,17 +513,57 @@ struct ContentView: View {
     private func runInstall() async {
         let selected = model.selectedStyles
         guard !selected.isEmpty else { return }
+        let affected = affectedFamilyIDs(forStyleIDs: Set(selected.map(\.id)))
+        // Remember which files this run touches so a cancel can roll back
+        // exactly these (and nothing pre-existing).
+        let selectedURLs = Set(selected.map(\.url.path))
 
         installInFlight = true
         defer { installInFlight = false }
 
         let progress = InstallProgress()
         installProgress = progress
+        let cancel = CancellationFlag()
+        installCancelFlag = cancel
+        // Dim + spin the affected tiles for the whole operation. The grid
+        // is dimmed-but-visible behind the sheet, so the spinner reads as
+        // "applying" in real time (DataFontCache renders from bytes, not
+        // fontd, so this is safe even during the font-service bounce).
+        // They keep their old glyph until finishProgress bumps the
+        // generation at the very end.
+        model.reloadingFamilyIDs = affected
 
-        let result = await InstallService.install(styles: selected) { update in
+        let result = await InstallService.install(
+            styles: selected,
+            isCancelled: { cancel.isCancelled }
+        ) { update in
             Task { @MainActor in
                 progress.apply(update)
             }
+        }
+
+        if result.cancelled {
+            // Cancel == undo everything: restore the backups of whatever
+            // got patched before the user bailed. The install left those
+            // un-finalized, so this restore is the only font-service
+            // bounce. Reuses the same modal (now showing "Undoing…").
+            await loadRestoreFamilies()
+            let undo = model.allRestoreEntries.filter {
+                selectedURLs.contains($0.originalPath.path) || selectedURLs.contains($0.livePath.path)
+            }
+            if !undo.isEmpty {
+                await MainActor.run { progress.action = "Restoring" }
+                _ = await RestoreService.restore(entries: undo) { update in
+                    Task { @MainActor in progress.apply(update) }
+                }
+            }
+            await MainActor.run {
+                progress.markFinished()
+                model.selectedStyleIDs.removeAll()
+            }
+            await loadRestoreFamilies()
+            await finishProgress(succeeded: true)
+            return
         }
 
         await MainActor.run {
@@ -543,24 +579,20 @@ struct ContentView: View {
         // its registration is sparse for several seconds, so a full re-
         // discovery would mark almost every unrelated family as inactive.
         // The on-disk file paths didn't change, so the existing
-        // model.families is still valid. Patched-font previews refresh via
-        // the `.process`-scope registration in `refreshFontRegistration`
-        // plus the `fontGeneration` bump below — no fontd round-trip
-        // needed. The Enshittified tab still re-reads the manifest.
+        // model.families is still valid. The Enshittified tab still
+        // re-reads the manifest.
         await loadRestoreFamilies()
-        await MainActor.run { model.fontGeneration &+= 1 }
 
-        if !result.errors.isEmpty {
-            resultAlert = ResultAlert(
-                title: "Some fonts couldn\u{2019}t be patched",
-                message: result.errors.joined(separator: "\n")
-            )
-        }
+        await finishProgress(succeeded: result.errors.isEmpty)
     }
 
     private func runRestore() async {
         let selected = model.selectedRestoreEntries
         guard !selected.isEmpty else { return }
+        // Map restored entries back to the visible families so their tiles
+        // show the reload spinner as the original glyph comes back.
+        let restoredNames = Set(selected.map(\.familyName))
+        let affected = Set(model.families.filter { restoredNames.contains($0.name) }.map(\.id))
 
         installInFlight = true
         defer { installInFlight = false }
@@ -568,7 +600,10 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
+        model.reloadingFamilyIDs = affected
 
+        // Restore isn't cancellable (the modal hides the Cancel button
+        // when action == "Restoring").
         let result = await RestoreService.restore(entries: selected) { update in
             Task { @MainActor in
                 progress.apply(update)
@@ -583,14 +618,68 @@ struct ContentView: View {
         // mid-bounce fontd doesn't make unrelated families flap to
         // inactive. Manifest-driven restore tab still refreshes.
         await loadRestoreFamilies()
-        await MainActor.run { model.fontGeneration &+= 1 }
 
-        if !result.errors.isEmpty {
-            resultAlert = ResultAlert(
-                title: "Some fonts couldn\u{2019}t be restored",
-                message: result.errors.joined(separator: "\n")
-            )
+        await finishProgress(succeeded: result.errors.isEmpty)
+    }
+
+    /// Restore the patched families selected on the Enshittified tab by
+    /// mapping them to their backup entries.
+    private func runRestoreFromEnshittified() async {
+        let entries = model.selectedEnshittifiedRestoreEntries()
+        guard !entries.isEmpty else { return }
+        let affected = affectedFamilyIDs(forStyleIDs: Set(model.selectedStyles.map(\.id)))
+
+        installInFlight = true
+        defer { installInFlight = false }
+
+        let progress = InstallProgress()
+        progress.action = "Restoring"
+        installProgress = progress
+        model.reloadingFamilyIDs = affected
+
+        let result = await RestoreService.restore(entries: entries) { update in
+            Task { @MainActor in
+                progress.apply(update)
+            }
         }
+
+        await MainActor.run {
+            progress.markFinished()
+            model.selectedStyleIDs.removeAll()
+        }
+        await loadRestoreFamilies()
+
+        await finishProgress(succeeded: result.errors.isEmpty)
+    }
+
+    /// Shared tail for install/restore. On success: hold the green "Done"
+    /// state briefly, dismiss the sheet, let the revealed tiles show their
+    /// reload spinner for a beat, THEN bump the font generation so the
+    /// preview flips to the new glyph and the spinner clears. The order
+    /// matters — bumping the generation is what swaps the rendered bytes,
+    /// so deferring it until after the spinner is visible makes the
+    /// spinner read as "applying" instead of appearing post-load.
+    private func finishProgress(succeeded: Bool) async {
+        if succeeded {
+            try? await Task.sleep(for: .milliseconds(600))
+            await MainActor.run { installProgress = nil }
+            try? await Task.sleep(for: .milliseconds(500))
+            await MainActor.run {
+                model.fontGeneration &+= 1
+                model.reloadingFamilyIDs = []
+            }
+        } else {
+            await MainActor.run {
+                model.fontGeneration &+= 1
+                model.reloadingFamilyIDs = []
+            }
+        }
+    }
+
+    private func affectedFamilyIDs(forStyleIDs styleIDs: Set<String>) -> Set<String> {
+        Set(model.families
+            .filter { fam in fam.styles.contains { styleIDs.contains($0.id) } }
+            .map(\.id))
     }
 }
 

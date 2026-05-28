@@ -9,6 +9,9 @@ struct InstallResult {
     /// Used by the UI to ask CoreText to re-register so previews
     /// refresh without an app restart.
     var patchedURLs: [URL] = []
+    /// True when the user cancelled mid-run. The caller rolls back the
+    /// already-patched fonts, so this run did not finalize.
+    var cancelled: Bool = false
 }
 
 enum InstallService {
@@ -26,11 +29,12 @@ enum InstallService {
     /// the bundled Python patching engine.
     static func install(
         styles: [FontStyle],
+        isCancelled: @escaping @Sendable () -> Bool = { false },
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) async -> InstallResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let result = installSync(styles: styles, progress: progress)
+                let result = installSync(styles: styles, isCancelled: isCancelled, progress: progress)
                 continuation.resume(returning: result)
             }
         }
@@ -38,6 +42,7 @@ enum InstallService {
 
     private static func installSync(
         styles: [FontStyle],
+        isCancelled: @escaping @Sendable () -> Bool,
         progress: @escaping @Sendable (InstallUpdate) -> Void
     ) -> InstallResult {
         var result = InstallResult()
@@ -54,7 +59,12 @@ enum InstallService {
 
         progress(.start(total: styles.count))
 
+        var cancelled = false
         for (index, style) in styles.enumerated() {
+            // Cooperative cancel: stop before the next font. Whatever was
+            // already patched gets rolled back by the caller (cancel ==
+            // "undo everything"), so we don't finalize here.
+            if isCancelled() { cancelled = true; break }
             progress(.progress(index: index, name: style.filename))
 
             do {
@@ -73,6 +83,13 @@ enum InstallService {
             try OriginsManifestStore.save(manifest)
         } catch {
             result.errors.append("Could not write origins manifest: \(error.localizedDescription)")
+        }
+
+        if cancelled {
+            // Don't finalize — the caller immediately restores what we
+            // patched, and that restore runs its own font-service bounce.
+            result.cancelled = true
+            return result
         }
 
         // Patches are written + manifest saved. Tell the UI it can close
