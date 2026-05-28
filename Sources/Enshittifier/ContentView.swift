@@ -66,33 +66,37 @@ struct ContentView: View {
     private var sidebar: some View {
         @Bindable var model = model
 
-        List(selection: $model.tab) {
-            Section("Library") {
-                Label("All Fonts", systemImage: AppModel.Tab.allFonts.systemImage)
-                    .badge(badge(for: .allFonts))
-                    .tag(AppModel.Tab.allFonts)
-                Label("Un-shittified", systemImage: AppModel.Tab.unshittified.systemImage)
-                    .badge(badge(for: .unshittified))
-                    .tag(AppModel.Tab.unshittified)
-                Label {
-                    Text("Enshittified")
-                } icon: {
-                    PoopGlyph(size: 16, tint: .primary)
+        VStack(spacing: 0) {
+            List(selection: $model.tab) {
+                Section("Library") {
+                    Label("All Fonts", systemImage: AppModel.Tab.allFonts.systemImage)
+                        .badge(badge(for: .allFonts))
+                        .tag(AppModel.Tab.allFonts)
+                    Label("Un-shittified", systemImage: AppModel.Tab.unshittified.systemImage)
+                        .badge(badge(for: .unshittified))
+                        .tag(AppModel.Tab.unshittified)
+                    Label {
+                        Text("Enshittified")
+                    } icon: {
+                        PoopGlyph(size: 16, tint: .primary)
+                    }
+                    .badge(badge(for: .enshittified))
+                    .tag(AppModel.Tab.enshittified)
+
+                    // Font Backups lives with the library but is set apart by a
+                    // divider — it's the restore surface, not a browse list.
+                    Divider()
+                        .padding(.vertical, 2)
+
+                    Label("Font Backups", systemImage: AppModel.Tab.restoreOriginals.systemImage)
+                        .badge(badge(for: .restoreOriginals))
+                        .tag(AppModel.Tab.restoreOriginals)
                 }
-                .badge(badge(for: .enshittified))
-                .tag(AppModel.Tab.enshittified)
-
-                // Font Backups lives with the library but is set apart by a
-                // divider — it's the restore surface, not a browse list.
-                Divider()
-                    .padding(.vertical, 2)
-
-                Label("Font Backups", systemImage: AppModel.Tab.restoreOriginals.systemImage)
-                    .badge(badge(for: .restoreOriginals))
-                    .tag(AppModel.Tab.restoreOriginals)
             }
+            .listStyle(.sidebar)
+
+            ExtensionCalloutView()
         }
-        .listStyle(.sidebar)
     }
 
     private func badge(for tab: AppModel.Tab) -> Int {
