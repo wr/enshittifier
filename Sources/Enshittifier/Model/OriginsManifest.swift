@@ -1,9 +1,7 @@
 import Foundation
 
 /// On-disk record of what the installer backed up and where it came from.
-/// Persisted as `~/Library/Font Backups/origins.json` (was
-/// `~/Desktop/Fonts (Backup)/origins.json` pre-W-194; `BackupMigrator`
-/// handles the one-shot move).
+/// Persisted as `~/Library/Font Backups/origins.json`.
 ///
 /// Schema v2 (current): keyed by absolute original_path string so two
 /// fonts sharing a filename in different directories don't collide.

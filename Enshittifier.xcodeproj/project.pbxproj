@@ -17,11 +17,9 @@
 		3E616AFC6662183C921AD16F /* PythonPatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3861D2479788C49958EFDC66 /* PythonPatcher.swift */; };
 		4F8E4E67821A471E47A8CE7F /* OriginsManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93ADB94AB3ED8503D42E9838 /* OriginsManifest.swift */; };
 		58324230F4DCD9DF8EA56ADD /* enshittifier.py in Resources */ = {isa = PBXBuildFile; fileRef = 84A0449BC72D1A19DE3D9DB9 /* enshittifier.py */; };
-		6437E925D04A230F2BDB41E4 /* MigrationProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E6A49DA6A7623C8C3E7254 /* MigrationProgressView.swift */; };
 		6671D91040D9E624F9898359 /* InstallProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE32B3BD49955A172728B94 /* InstallProgressView.swift */; };
 		6F121A521F3E65801250BA6B /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 21651E06804C442E14FA641F /* AppIcon.icon */; };
 		80A5D0E96BAC7D1D8AE31E90 /* FontStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C12B06217D11243A8D1541C /* FontStyle.swift */; };
-		878574463EBA32F2C484D9BF /* BackupMigrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54399D844122483176A964B /* BackupMigrator.swift */; };
 		983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F2CE30F03AF4CE27F1B6C96 /* CmapTablePatcher.swift */; };
 		9B7C617EF617BA9D6D20AB13 /* InstallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E7A54473300638DD9E408A /* InstallService.swift */; };
 		9FE72729A470FC3C63EB30E5 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0554EB7DC57F5F7E18ADA5F5 /* AppModel.swift */; };
@@ -41,7 +39,6 @@
 		09AAEC971351B7B517A65BD0 /* BinaryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryReader.swift; sourceTree = "<group>"; };
 		0AB368FE2B2283BCF12813F7 /* RestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreService.swift; sourceTree = "<group>"; };
 		21651E06804C442E14FA641F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
-		23E6A49DA6A7623C8C3E7254 /* MigrationProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationProgressView.swift; sourceTree = "<group>"; };
 		2C12B06217D11243A8D1541C /* FontStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontStyle.swift; sourceTree = "<group>"; };
 		2EE32B3BD49955A172728B94 /* InstallProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallProgressView.swift; sourceTree = "<group>"; };
 		2FE48FB307F93898F253A05A /* FamilyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyListView.swift; sourceTree = "<group>"; };
@@ -56,7 +53,6 @@
 		8B8064CCC2C0FCE211725CFC /* PoopGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoopGlyph.swift; sourceTree = "<group>"; };
 		9174B0B2F4FF77A8AB1B3508 /* Patcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Patcher.swift; sourceTree = "<group>"; };
 		93ADB94AB3ED8503D42E9838 /* OriginsManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginsManifest.swift; sourceTree = "<group>"; };
-		B54399D844122483176A964B /* BackupMigrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupMigrator.swift; sourceTree = "<group>"; };
 		B754CA80BC1EFAB148852705 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		B8E286CAFE35F06E6C7FF9F9 /* Enshittifier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Enshittifier.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2AE81B2D6B9AF5CAD7F49A7 /* OpenTypeFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenTypeFile.swift; sourceTree = "<group>"; };
@@ -112,7 +108,6 @@
 			children = (
 				2FE48FB307F93898F253A05A /* FamilyListView.swift */,
 				2EE32B3BD49955A172728B94 /* InstallProgressView.swift */,
-				23E6A49DA6A7623C8C3E7254 /* MigrationProgressView.swift */,
 				8B8064CCC2C0FCE211725CFC /* PoopGlyph.swift */,
 			);
 			path = Views;
@@ -163,7 +158,6 @@
 		BA80A581FB267B521B757157 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				B54399D844122483176A964B /* BackupMigrator.swift */,
 				3CA00F92D0D8F293D3E03C3D /* DataFontCache.swift */,
 				C378C94606899D14056904F5 /* FontCacheFlusher.swift */,
 				E138E9D43C598A47A6B2EFC8 /* FontDiscovery.swift */,
@@ -262,7 +256,6 @@
 			files = (
 				A92F27989DFCFE0EA6EB1327 /* App.swift in Sources */,
 				9FE72729A470FC3C63EB30E5 /* AppModel.swift in Sources */,
-				878574463EBA32F2C484D9BF /* BackupMigrator.swift in Sources */,
 				A82C989BAC68FF478F365218 /* BinaryReader.swift in Sources */,
 				983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */,
 				CEC4D1DACDE5AE102070826B /* ContentView.swift in Sources */,
@@ -274,7 +267,6 @@
 				80A5D0E96BAC7D1D8AE31E90 /* FontStyle.swift in Sources */,
 				6671D91040D9E624F9898359 /* InstallProgressView.swift in Sources */,
 				9B7C617EF617BA9D6D20AB13 /* InstallService.swift in Sources */,
-				6437E925D04A230F2BDB41E4 /* MigrationProgressView.swift in Sources */,
 				CFF62C53F290A63D7AE524ED /* NameTablePatcher.swift in Sources */,
 				03775842F399A761EF9A13C7 /* OpenTypeFile.swift in Sources */,
 				4F8E4E67821A471E47A8CE7F /* OriginsManifest.swift in Sources */,
