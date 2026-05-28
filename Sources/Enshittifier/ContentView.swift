@@ -609,6 +609,7 @@ struct ContentView: View {
     private func runInstall() async {
         let selected = model.selectedStyles
         guard !selected.isEmpty else { return }
+        let affected = affectedFamilyIDs(forStyleIDs: Set(selected.map(\.id)))
 
         installInFlight = true
         defer { installInFlight = false }
@@ -640,19 +641,21 @@ struct ContentView: View {
         // plus the `fontGeneration` bump below — no fontd round-trip
         // needed. The Enshittified tab still re-reads the manifest.
         await loadRestoreFamilies()
-        await MainActor.run { model.fontGeneration &+= 1 }
-
-        if !result.errors.isEmpty {
-            resultAlert = ResultAlert(
-                title: "Some fonts couldn\u{2019}t be patched",
-                message: result.errors.joined(separator: "\n")
-            )
+        await MainActor.run {
+            model.reloadingFamilyIDs = affected
+            model.fontGeneration &+= 1
         }
+
+        await finishProgress(installSucceeded: result.errors.isEmpty, reloading: affected)
     }
 
     private func runRestore() async {
         let selected = model.selectedRestoreEntries
         guard !selected.isEmpty else { return }
+        // Map restored entries back to the visible families so their tiles
+        // show the reload spinner as the original glyph comes back.
+        let restoredNames = Set(selected.map(\.familyName))
+        let affected = Set(model.families.filter { restoredNames.contains($0.name) }.map(\.id))
 
         installInFlight = true
         defer { installInFlight = false }
@@ -675,14 +678,36 @@ struct ContentView: View {
         // mid-bounce fontd doesn't make unrelated families flap to
         // inactive. Manifest-driven restore tab still refreshes.
         await loadRestoreFamilies()
-        await MainActor.run { model.fontGeneration &+= 1 }
-
-        if !result.errors.isEmpty {
-            resultAlert = ResultAlert(
-                title: "Some fonts couldn\u{2019}t be restored",
-                message: result.errors.joined(separator: "\n")
-            )
+        await MainActor.run {
+            model.reloadingFamilyIDs = affected
+            model.fontGeneration &+= 1
         }
+
+        await finishProgress(installSucceeded: result.errors.isEmpty, reloading: affected)
+    }
+
+    /// Shared tail for install/restore: on full success, hold the "Done"
+    /// state briefly then auto-dismiss the sheet so the grid (with its
+    /// per-tile reload spinners) comes back; on failure, leave the sheet
+    /// up so the user can read what went wrong and close it themselves.
+    private func finishProgress(installSucceeded: Bool, reloading: Set<String>) async {
+        if installSucceeded {
+            try? await Task.sleep(for: .milliseconds(650))
+            await MainActor.run { installProgress = nil }
+            // Let the revealed tiles spin for a beat, then flip to the
+            // patched/restored glyph.
+            try? await Task.sleep(for: .milliseconds(650))
+            await MainActor.run { model.reloadingFamilyIDs = [] }
+        } else {
+            // Sheet stays open (it shows the failures). Nothing to wait on.
+            await MainActor.run { model.reloadingFamilyIDs = [] }
+        }
+    }
+
+    private func affectedFamilyIDs(forStyleIDs styleIDs: Set<String>) -> Set<String> {
+        Set(model.families
+            .filter { fam in fam.styles.contains { styleIDs.contains($0.id) } }
+            .map(\.id))
     }
 }
 

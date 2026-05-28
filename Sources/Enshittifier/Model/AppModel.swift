@@ -77,6 +77,12 @@ final class AppModel {
 
     /// IDs of selected styles. A family is "all selected" iff every style id is in this set.
     var selectedStyleIDs: Set<String> = []
+    /// Anchor for shift-range selection — the family id of the last
+    /// plain/⌘ click. Range clicks select from here to the target.
+    var selectionAnchorFamilyID: String?
+    /// Family ids whose preview is being re-resolved right after a patch.
+    /// Tiles show a spinner while in this set, then flip to the new glyph.
+    var reloadingFamilyIDs: Set<String> = []
 
     var restoreFamilies: [RestoreFamily] = [] {
         didSet { patchedOriginalPaths = Self.computePatchedPaths(from: restoreFamilies) }
@@ -200,6 +206,41 @@ final class AppModel {
         }
     }
 
+    /// Font Book / Finder–style click selection.
+    /// - `.replace`: select just this family, clearing the rest.
+    /// - `.toggle` (⌘-click): add/remove this family from the selection.
+    /// - `.range` (⇧-click): select the contiguous run from the anchor to
+    ///   this family in `visible` order, replacing the prior selection.
+    ///
+    /// Fully-patched families are skipped — they aren't installable, so
+    /// including them in a range or replace would select already-patched
+    /// styles. `visible` is the currently-displayed, ordered family list.
+    func clickFamily(_ family: FontFamily, in visible: [FontFamily], mode: SelectMode) {
+        switch mode {
+        case .replace:
+            selectedStyleIDs = Set(family.styles.map(\.id))
+            selectionAnchorFamilyID = family.id
+        case .toggle:
+            toggleFamily(family)
+            selectionAnchorFamilyID = family.id
+        case .range:
+            guard let anchorID = selectionAnchorFamilyID,
+                  let a = visible.firstIndex(where: { $0.id == anchorID }),
+                  let b = visible.firstIndex(where: { $0.id == family.id }) else {
+                selectedStyleIDs = Set(family.styles.map(\.id))
+                selectionAnchorFamilyID = family.id
+                return
+            }
+            let lo = min(a, b), hi = max(a, b)
+            selectedStyleIDs = Set(
+                visible[lo...hi]
+                    .filter { !isFamilyFullyPatched($0) }
+                    .flatMap { $0.styles.map(\.id) }
+            )
+            // Anchor stays put so the user can grow/shrink the range.
+        }
+    }
+
     func selectAll() {
         selectedStyleIDs = Set(families.flatMap { $0.styles.map(\.id) })
     }
@@ -250,6 +291,13 @@ final class AppModel {
 
 enum SelectionState {
     case off, partial, on
+}
+
+/// How a click on a family should affect the selection set.
+enum SelectMode {
+    case replace   // plain click — select only this
+    case toggle    // ⌘-click — add/remove this
+    case range     // ⇧-click — select anchor…this
 }
 
 struct RestoreEntry: Identifiable, Hashable {

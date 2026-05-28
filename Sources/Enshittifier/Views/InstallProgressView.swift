@@ -84,227 +84,158 @@ enum InstallUpdate {
     case finalized
 }
 
+/// Compact, stateful progress sheet. Three states:
+///   • working   — header + determinate bar + current font
+///   • done/ok    — green check; ContentView auto-dismisses it
+///   • done/issues — warning + a list of what failed + a Close button
 struct InstallProgressView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var progress: InstallProgress
 
+    private var isRestore: Bool { progress.action == "Restoring" }
+    private var verb: String { isRestore ? "Restoring" : "Enshittifying" }
+    private var pastVerb: String { isRestore ? "restored" : "enshittified" }
+    private var accent: Color { isRestore ? Self.restorePurple : .orange }
+    private var hasFailures: Bool { progress.finished && progress.failureCount > 0 }
+
+    static let restorePurple = Color(red: 0.45, green: 0.30, blue: 0.78)
+
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                heroSection
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 28)
-                    .padding(.top, 28)
-                    .padding(.bottom, 22)
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+                .padding(.bottom, hasFailures ? 18 : 28)
 
-                if !progress.rows.isEmpty {
-                    Divider()
-                    rowsList
-                } else if !progress.finished {
-                    // Subtle placeholder while no rows have streamed in yet.
-                    Spacer(minLength: 24)
-                }
-
-                if progress.finished {
-                    footerNote
-                }
-            }
-            .frame(minWidth: 560, minHeight: 460)
-            .navigationTitle(progress.finished ? "\(progress.action) complete" : "\(progress.action)\u{2026}")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(progress.finished ? "Done" : "Close") { dismiss() }
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!progress.finished)
-                }
-            }
-        }
-    }
-
-    // MARK: - Hero
-
-    @ViewBuilder
-    private var heroSection: some View {
-        if progress.finished {
-            finishedHero
-        } else {
-            inFlightHero
-        }
-    }
-
-    @ViewBuilder
-    private var inFlightHero: some View {
-        VStack(spacing: 16) {
-            heroIcon
-                .frame(height: 60)
-
-            VStack(spacing: 6) {
-                Text(heroTitle)
-                    .font(.title2.weight(.semibold))
-                HStack(spacing: 8) {
-                    if progress.finalizing {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                    Text(heroSubtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .animation(.default, value: progress.currentFontName)
-                }
-                .frame(maxWidth: .infinity)
-            }
-
-            VStack(spacing: 6) {
-                ProgressView(value: Double(progress.completed),
-                             total: Double(max(progress.total, 1)))
-                    .progressViewStyle(.linear)
-                    .tint(progress.action == "Restoring" ? .orange : .accentColor)
-                HStack(spacing: 8) {
-                    Text("\(progress.completed) of \(progress.total)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+            if hasFailures {
+                Divider()
+                failureList
+                Divider()
+                HStack {
                     Spacer()
-                    Text("\(percentComplete)%")
-                        .font(.caption.monospacedDigit().weight(.medium))
-                        .foregroundStyle(.secondary)
+                    Button("Done") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                        .controlSize(.large)
                 }
+                .padding(16)
             }
         }
+        .frame(width: 460)
     }
 
-    private var heroTitle: String {
-        if progress.finalizing { return "Finalizing\u{2026}" }
-        return "\(progress.action)\u{2026}"
-    }
-
-    private var heroSubtitle: String {
-        if !progress.currentFontName.isEmpty { return progress.currentFontName }
-        return "Getting ready\u{2026}"
-    }
+    // MARK: - Header (state-dependent)
 
     @ViewBuilder
-    private var finishedHero: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(finishedTint.opacity(0.16))
-                    .frame(width: 72, height: 72)
-                Image(systemName: progress.failureCount == 0 ? "checkmark" : "exclamationmark")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(finishedTint)
-            }
-            VStack(spacing: 4) {
-                Text(finishedTitle)
+    private var header: some View {
+        VStack(spacing: 16) {
+            icon
+                .frame(height: 56)
+
+            VStack(spacing: 5) {
+                Text(title)
                     .font(.title2.weight(.semibold))
-                Text(finishedSubtitle)
+                Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .animation(.default, value: subtitle)
             }
-            if progress.finalizing {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text(progress.finalizingLabel.isEmpty
-                         ? "Refreshing font system\u{2026}"
-                         : progress.finalizingLabel)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.top, 4)
-            }
-        }
-    }
 
-    @ViewBuilder
-    private var heroIcon: some View {
-        if progress.action == "Restoring" {
-            Image(systemName: "arrow.uturn.backward.circle.fill")
-                .font(.system(size: 52, weight: .regular))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.orange)
-        } else {
-            PoopGlyph(size: 52, tint: .accentColor)
-        }
-    }
-
-    private var finishedTint: Color {
-        progress.failureCount == 0 ? .green : .orange
-    }
-
-    private var percentComplete: Int {
-        let t = max(progress.total, 1)
-        return Int((Double(progress.completed) / Double(t)) * 100)
-    }
-
-    // MARK: - Rows
-
-    @ViewBuilder
-    private var rowsList: some View {
-        List(progress.rows) { row in
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: row.success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .foregroundStyle(row.success ? Color.green : Color.orange)
-                    .symbolRenderingMode(.hierarchical)
-                    .font(.body)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(row.name)
-                        .font(.callout)
-                    if let d = row.detail {
-                        Text(d)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
+            if !progress.finished {
+                VStack(spacing: 6) {
+                    ProgressView(value: Double(progress.completed),
+                                 total: Double(max(progress.total, 1)))
+                        .progressViewStyle(.linear)
+                        .tint(accent)
+                    HStack {
+                        Text("\(progress.completed) of \(progress.total)")
+                        Spacer()
+                        Text("\(percent)%")
+                            .fontWeight(.medium)
                     }
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
                 }
-                Spacer()
             }
-            .listRowSeparator(.hidden)
-            .padding(.vertical, 2)
         }
-        .listStyle(.plain)
-        .frame(minHeight: 200)
     }
 
     @ViewBuilder
-    private var footerNote: some View {
-        Divider()
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "info.circle.fill")
-                .foregroundStyle(.blue)
-                .font(.callout)
-            Text("Restart apps that were using the patched font to see changes. Browsers usually pick up the new glyph on the next page load.")
-                .font(.callout)
-                .foregroundStyle(.primary)
-            Spacer(minLength: 0)
+    private var icon: some View {
+        if progress.finished {
+            ZStack {
+                Circle()
+                    .fill((hasFailures ? Color.orange : Color.green).opacity(0.15))
+                    .frame(width: 56, height: 56)
+                Image(systemName: hasFailures ? "exclamationmark" : "checkmark")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(hasFailures ? .orange : .green)
+            }
+        } else if isRestore {
+            Image(systemName: "arrow.uturn.backward.circle.fill")
+                .font(.system(size: 48))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(accent)
+        } else {
+            PoopGlyph(size: 48, tint: accent)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(Color.blue.opacity(0.07))
     }
 
-    private var finishedTitle: String {
-        if progress.failureCount == 0 {
-            return "All set"
-        } else if progress.successCount == 0 {
-            return "Nothing patched"
-        } else {
+    private var title: String {
+        if !progress.finished { return "\(verb)\u{2026}" }
+        if hasFailures {
             return "Finished with \(progress.failureCount) issue\(progress.failureCount == 1 ? "" : "s")"
         }
+        return "Done"
     }
 
-    private var finishedSubtitle: String {
-        let s = progress.successCount
-        let f = progress.failureCount
-        switch (s, f) {
-        case (let s, 0):
-            return "\(s) style\(s == 1 ? "" : "s") \(progress.action == "Restoring" ? "restored" : "patched")."
-        case (0, let f):
-            return "\(f) style\(f == 1 ? "" : "s") couldn\u{2019}t be \(progress.action == "Restoring" ? "restored" : "patched")."
-        case (let s, let f):
-            let verb = progress.action == "Restoring" ? "restored" : "patched"
-            return "\(s) \(verb), \(f) failed."
+    private var subtitle: String {
+        if progress.finalizing {
+            return progress.finalizingLabel.isEmpty ? "Refreshing font system\u{2026}" : progress.finalizingLabel
         }
+        if !progress.finished {
+            return progress.currentFontName.isEmpty ? "Preparing\u{2026}" : progress.currentFontName
+        }
+        let s = progress.successCount
+        if hasFailures {
+            return "\(s) \(pastVerb), \(progress.failureCount) failed"
+        }
+        return "\(s) style\(s == 1 ? "" : "s") \(pastVerb)"
+    }
+
+    private var percent: Int {
+        Int((Double(progress.completed) / Double(max(progress.total, 1))) * 100)
+    }
+
+    // MARK: - Failure list (only when finished with issues)
+
+    @ViewBuilder
+    private var failureList: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(progress.rows.filter { !$0.success }) { row in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .symbolRenderingMode(.hierarchical)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.name)
+                                .font(.callout.weight(.medium))
+                            if let d = row.detail {
+                                Text(d)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(3)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+        .frame(maxHeight: 200)
     }
 }

@@ -4,6 +4,19 @@ import AppKit
 private let cardSample = "I love\nAI"
 private let listSample = "I love AI"
 
+/// Maps the modifier keys held at click time to a selection mode, so the
+/// grid/list behave like Font Book: plain click selects one, ⌘ toggles,
+/// ⇧ extends a range. Reading `NSEvent.modifierFlags` in the tap handler
+/// is the pragmatic way to get modifiers — SwiftUI's `onTapGesture`
+/// doesn't surface them.
+@MainActor
+func currentSelectMode() -> SelectMode {
+    let flags = NSEvent.modifierFlags
+    if flags.contains(.command) { return .toggle }
+    if flags.contains(.shift) { return .range }
+    return .replace
+}
+
 // MARK: - Install grid / list
 
 struct FamilyGridView: View {
@@ -65,13 +78,14 @@ private struct FamilyTile: View {
                 selectionState: selection,
                 tileHeight: model.tileSize * 0.78,
                 isActivated: !isFamilyInactive,
-                isPatched: isPatched
+                isPatched: isPatched,
+                isReloading: model.reloadingFamilyIDs.contains(family.id)
             )
             .id(model.fontGeneration)
             .contentShape(Rectangle())
             .onTapGesture {
                 guard !isLocked else { return }
-                model.toggleFamily(family)
+                model.clickFamily(family, in: model.filteredFamilies, mode: currentSelectMode())
             }
             .help(family.name)
             .contextMenu { familyContextMenu(for: family) }
@@ -113,8 +127,12 @@ private struct FamilyListRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             if !isLocked {
-                SelectionCircle(state: selection, onTap: { model.toggleFamily(family) }, size: 26)
-                    .padding(.top, 6)
+                SelectionCircle(
+                    state: selection,
+                    onTap: { model.clickFamily(family, in: model.filteredFamilies, mode: .toggle) },
+                    size: 26
+                )
+                .padding(.top, 6)
             } else {
                 // Keep the row's leading column reserved so the text
                 // baseline doesn't shift between locked and unlocked
@@ -160,7 +178,7 @@ private struct FamilyListRow: View {
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isLocked else { return }
-            model.toggleFamily(family)
+            model.clickFamily(family, in: model.filteredFamilies, mode: currentSelectMode())
         }
         .contextMenu { familyContextMenu(for: family) }
     }
@@ -617,6 +635,9 @@ struct FontSampleTile: View {
     var tileHeight: CGFloat = 120
     var isActivated: Bool = true
     var isPatched: Bool = false
+    /// True while this family was just patched and its preview is being
+    /// re-resolved from the new bytes — show a spinner over the sample.
+    var isReloading: Bool = false
 
     var body: some View {
         ZStack {
@@ -639,9 +660,16 @@ struct FontSampleTile: View {
                 .lineLimit(3)
                 .minimumScaleFactor(0.35)
                 .foregroundStyle(.primary)
-                .opacity(isActivated ? 1.0 : 0.35)
+                .blur(radius: isReloading ? 4 : 0)
+                .opacity(isReloading ? 0.25 : (isActivated ? 1.0 : 0.35))
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
+
+            if isReloading {
+                ProgressView()
+                    .controlSize(.small)
+                    .transition(.opacity)
+            }
 
             // Bottom-left style count + location/patched pills
             VStack {
