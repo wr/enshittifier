@@ -39,7 +39,7 @@ the app is the product.
 xcodegen generate
 
 # Local dev build (adhoc-signed, fast). Drops Enshittifier.app under
-# build/ and a dev DMG at the repo root.
+# build/. Pass --dmg to also build Enshittifier-dev.dmg at the repo root.
 bash scripts/build-dev.sh
 
 # Full release (Developer ID → notarize → staple → Sparkle-sign DMG → gh
