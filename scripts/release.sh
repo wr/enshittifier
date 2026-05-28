@@ -278,18 +278,35 @@ DMG_URL="https://github.com/${GH_REPO}/releases/download/${TAG}/${DMG_NAME}"
 
 # --- appcast update -------------------------------------------------------
 echo "==> Updating appcast.xml on gh-pages"
-PAGES_WT="$BUILD_DIR/gh-pages"
-rm -rf "$PAGES_WT"
-if git -C "$REPO_ROOT" show-ref --verify --quiet refs/heads/gh-pages \
-   || git -C "$REPO_ROOT" ls-remote --exit-code origin gh-pages >/dev/null 2>&1; then
-    git -C "$REPO_ROOT" fetch origin gh-pages || true
-    git -C "$REPO_ROOT" worktree add "$PAGES_WT" gh-pages
+
+# gh-pages may already be checked out in a persistent worktree (e.g. a
+# separate site clone). git refuses to check out a branch in two
+# worktrees, so reuse the existing one rather than adding a second.
+# Only worktrees this script creates get torn down at the end.
+EXISTING_PAGES_WT="$(git -C "$REPO_ROOT" worktree list --porcelain \
+    | awk '/^worktree /{wt=substr($0,10)} /^branch refs\/heads\/gh-pages$/{print wt; exit}')"
+
+PAGES_WT=""
+CREATED_PAGES_WT=0
+if [[ -n "$EXISTING_PAGES_WT" ]]; then
+    echo "    reusing existing gh-pages worktree at $EXISTING_PAGES_WT"
+    PAGES_WT="$EXISTING_PAGES_WT"
+    git -C "$PAGES_WT" pull --ff-only origin gh-pages || true
 else
-    # First-ever release: bootstrap an orphan gh-pages. update_appcast.py
-    # will create a fresh appcast.xml if one doesn't exist yet.
-    git -C "$REPO_ROOT" worktree add --detach "$PAGES_WT"
-    git -C "$PAGES_WT" checkout --orphan gh-pages
-    git -C "$PAGES_WT" rm -rf . >/dev/null 2>&1 || true
+    PAGES_WT="$BUILD_DIR/gh-pages"
+    rm -rf "$PAGES_WT"
+    CREATED_PAGES_WT=1
+    if git -C "$REPO_ROOT" show-ref --verify --quiet refs/heads/gh-pages \
+       || git -C "$REPO_ROOT" ls-remote --exit-code origin gh-pages >/dev/null 2>&1; then
+        git -C "$REPO_ROOT" fetch origin gh-pages || true
+        git -C "$REPO_ROOT" worktree add "$PAGES_WT" gh-pages
+    else
+        # First-ever release: bootstrap an orphan gh-pages. update_appcast.py
+        # will create a fresh appcast.xml if one doesn't exist yet.
+        git -C "$REPO_ROOT" worktree add --detach "$PAGES_WT"
+        git -C "$PAGES_WT" checkout --orphan gh-pages
+        git -C "$PAGES_WT" rm -rf . >/dev/null 2>&1 || true
+    fi
 fi
 
 python3 "$REPO_ROOT/scripts/update_appcast.py" \
@@ -303,7 +320,10 @@ python3 "$REPO_ROOT/scripts/update_appcast.py" \
 git -C "$PAGES_WT" add appcast.xml
 git -C "$PAGES_WT" commit -m "Appcast: ${TAG}"
 git -C "$PAGES_WT" push origin gh-pages
-git -C "$REPO_ROOT" worktree remove "$PAGES_WT"
+# Leave a pre-existing persistent worktree in place; only remove ours.
+if [[ "$CREATED_PAGES_WT" -eq 1 ]]; then
+    git -C "$REPO_ROOT" worktree remove "$PAGES_WT"
+fi
 
 echo
 echo "==> Release ${TAG} published."
