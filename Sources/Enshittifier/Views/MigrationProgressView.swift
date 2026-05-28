@@ -1,8 +1,8 @@
 import SwiftUI
 import Observation
 
-/// Drives the one-time backup-migration sheet (W-216). Minimal by design:
-/// the migration is a no-op on virtually every launch, so this only ever
+/// Drives the one-time backup-migration sheet. Minimal by design: the
+/// migration is a no-op on virtually every launch, so this only ever
 /// appears once, briefly, on the first run after upgrading from a build
 /// that kept backups on the Desktop.
 @Observable
