@@ -23,6 +23,7 @@
 		983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F2CE30F03AF4CE27F1B6C96 /* CmapTablePatcher.swift */; };
 		9B7C617EF617BA9D6D20AB13 /* InstallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43E7A54473300638DD9E408A /* InstallService.swift */; };
 		9FE72729A470FC3C63EB30E5 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0554EB7DC57F5F7E18ADA5F5 /* AppModel.swift */; };
+		A39BC7AAB2491F3F2464CCA6 /* ExtensionCalloutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DE8862B86956E412F5F8D23 /* ExtensionCalloutView.swift */; };
 		A3D99FB137137EE17DDDFD7B /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B754CA80BC1EFAB148852705 /* UpdaterController.swift */; };
 		A82C989BAC68FF478F365218 /* BinaryReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09AAEC971351B7B517A65BD0 /* BinaryReader.swift */; };
 		A92F27989DFCFE0EA6EB1327 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2BA44C97A2BDBF91EF3F68 /* App.swift */; };
@@ -38,6 +39,7 @@
 		0554EB7DC57F5F7E18ADA5F5 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		09AAEC971351B7B517A65BD0 /* BinaryReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BinaryReader.swift; sourceTree = "<group>"; };
 		0AB368FE2B2283BCF12813F7 /* RestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreService.swift; sourceTree = "<group>"; };
+		0DE8862B86956E412F5F8D23 /* ExtensionCalloutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionCalloutView.swift; sourceTree = "<group>"; };
 		21651E06804C442E14FA641F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		2C12B06217D11243A8D1541C /* FontStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontStyle.swift; sourceTree = "<group>"; };
 		2EE32B3BD49955A172728B94 /* InstallProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallProgressView.swift; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 		2B4FB5629A60A36127DB0B48 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				0DE8862B86956E412F5F8D23 /* ExtensionCalloutView.swift */,
 				2FE48FB307F93898F253A05A /* FamilyListView.swift */,
 				2EE32B3BD49955A172728B94 /* InstallProgressView.swift */,
 				8B8064CCC2C0FCE211725CFC /* PoopGlyph.swift */,
@@ -260,6 +263,7 @@
 				983311D441429C9BCC6C1AE7 /* CmapTablePatcher.swift in Sources */,
 				CEC4D1DACDE5AE102070826B /* ContentView.swift in Sources */,
 				1D2466CD0E6BD4D5214999C7 /* DataFontCache.swift in Sources */,
+				A39BC7AAB2491F3F2464CCA6 /* ExtensionCalloutView.swift in Sources */,
 				24D4B07B915A071BC0A94790 /* FamilyListView.swift in Sources */,
 				27CB92393780A5EC965128DC /* FontCacheFlusher.swift in Sources */,
 				0C4B5E51ACE0A193D4D1CAB4 /* FontDiscovery.swift in Sources */,
