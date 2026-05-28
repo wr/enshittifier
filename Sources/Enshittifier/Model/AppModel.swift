@@ -12,7 +12,7 @@ final class AppModel {
         var id: String { rawValue }
         var systemImage: String {
             switch self {
-            case .allFonts: return "textformat"
+            case .allFonts: return "square.grid.2x2"
             case .unshittified: return "character.book.closed"
             case .enshittified: return "wand.and.stars"
             case .restoreOriginals: return "arrow.uturn.backward"

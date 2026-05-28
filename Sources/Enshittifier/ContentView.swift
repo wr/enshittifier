@@ -84,14 +84,52 @@ struct ContentView: View {
                 .badge(badge(for: .enshittified))
                 .tag(AppModel.Tab.enshittified)
             }
-
-            Section("Restore") {
-                Label("Restore Originals", systemImage: AppModel.Tab.restoreOriginals.systemImage)
-                    .badge(badge(for: .restoreOriginals))
-                    .tag(AppModel.Tab.restoreOriginals)
-            }
         }
         .listStyle(.sidebar)
+        // Font Backups is docked to the bottom of the sidebar — it's the
+        // restore surface, conceptually separate from the browse library.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            backupsSidebarItem
+        }
+    }
+
+    @ViewBuilder
+    private var backupsSidebarItem: some View {
+        @Bindable var model = model
+        let selected = model.tab == .restoreOriginals
+        let count = badge(for: .restoreOriginals)
+
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                model.tab = .restoreOriginals
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: AppModel.Tab.restoreOriginals.systemImage)
+                        .frame(width: 18)
+                        .foregroundStyle(selected ? Color.white : Color.accentColor)
+                    Text("Font Backups")
+                        .foregroundStyle(selected ? Color.white : Color.primary)
+                    Spacer()
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.callout)
+                            .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.secondary)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(selected ? Color.accentColor : Color.clear)
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
     }
 
     private func badge(for tab: AppModel.Tab) -> Int {
@@ -299,7 +337,7 @@ struct ContentView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.uturn.backward")
                             .font(.system(size: 12, weight: .semibold))
-                        Text("Open Restore Originals")
+                        Text("Restore Original")
                             .fontWeight(.medium)
                     }
                     .frame(height: 24)
@@ -336,6 +374,10 @@ struct ContentView: View {
                 Button(action: { Task { await primaryAction() } }) {
                     HStack(spacing: 8) {
                         primaryActionIconView
+                            // The icon uses an explicit white fill that won't
+                            // dim with the button the way the text label does,
+                            // so fade it manually to match the disabled state.
+                            .opacity(primaryButtonDisabled ? 0.4 : 1)
                         Text(primaryActionLabel)
                             .fontWeight(.medium)
                     }
@@ -346,7 +388,7 @@ struct ContentView: View {
                 .controlSize(.large)
                 .tint(primaryActionTint)
                 .keyboardShortcut(.defaultAction)
-                .disabled(primaryActionDisabled || installInFlight)
+                .disabled(primaryButtonDisabled)
             }
         }
         .padding(.horizontal, 16)
@@ -388,11 +430,11 @@ struct ContentView: View {
             return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .enshittified:
             let total = model.families.filter { model.isFamilyPartiallyPatched($0) }.count
-            return "\(countSummary(filtered: model.filteredFamilies.count, total: total)) currently enshittified"
+            return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .restoreOriginals:
             let total = model.restoreFamilies.count
             let filtered = filteredRestoreFamilies.count
-            return "\(countSummary(filtered: filtered, total: total)) ready to restore"
+            return countSummary(filtered: filtered, total: total)
         }
     }
 
@@ -429,13 +471,22 @@ struct ContentView: View {
     }
 
     private var primaryActionLabel: String {
-        model.tab == .restoreOriginals ? "Restore Originals" : "Enshittify Selected"
+        model.tab == .restoreOriginals ? "Restore" : "Enshittify Selected"
     }
 
     private var primaryActionTint: Color {
         // Strong visual difference between the destructive Enshittify
-        // action (warm warning) and the safe Restore action (clear undo).
-        model.tab == .restoreOriginals ? .green : .orange
+        // action (warm warning) and the safe Restore action (calm purple).
+        model.tab == .restoreOriginals ? Self.restorePurple : .orange
+    }
+
+    /// Restore action accent — a deep violet that reads as deliberate and
+    /// distinct from the orange Enshittify action while staying legible
+    /// behind white text/icon on the prominent button.
+    private static let restorePurple = Color(red: 0.45, green: 0.30, blue: 0.78)
+
+    private var primaryButtonDisabled: Bool {
+        primaryActionDisabled || installInFlight
     }
 
     private var primaryActionDisabled: Bool {
