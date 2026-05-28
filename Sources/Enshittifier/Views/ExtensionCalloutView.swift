@@ -16,14 +16,14 @@ struct ExtensionCalloutView: View {
             ZStack(alignment: .topTrailing) {
                 VStack(spacing: 8) {
                     targetIcon
-                        .frame(width: 40, height: 40)
-                        .padding(.top, 2)
+                        .frame(width: 60, height: 60)
+                        .padding(.top, 4)
 
                     Text("Browser Extension")
-                        .font(.callout.weight(.semibold))
+                        .font(.title3.weight(.semibold))
 
                     Text("Enshittify fonts on the web, too.")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -69,7 +69,7 @@ struct ExtensionCalloutView: View {
             // Fallback when the named browser isn't installed (e.g. Chrome
             // not present on a Safari default).
             Image(systemName: "puzzlepiece.extension.fill")
-                .font(.system(size: 30))
+                .font(.system(size: 44))
                 .foregroundStyle(.secondary)
         }
     }
