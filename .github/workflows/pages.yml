@@ -1,0 +1,54 @@
+# Deploy the `gh-pages` branch's contents to GitHub Pages.
+#
+# Why this workflow exists instead of using Pages' "branch source" mode:
+# the legacy branch-source builder choked on the gh-pages branch (every
+# build just reported "Page build failed" with no further detail, even
+# with .nojekyll committed). Switching Pages to the Actions-based source
+# uploads gh-pages's files directly as a Pages artifact, no Jekyll round
+# trip required.
+#
+# IMPORTANT — this file must live on the `gh-pages` branch, not `main`.
+# For `push` events, GitHub only runs workflows defined in the *pushed*
+# branch's tree. A copy of this on `main` listening for `push` to
+# gh-pages never fires (main isn't the pushed branch). Keeping it here on
+# gh-pages is what makes `scripts/publish.sh` and `scripts/release.sh`
+# (the appcast updater) auto-deploy. Also exposed as workflow_dispatch
+# for manual re-runs: `gh workflow run pages.yml --ref gh-pages`.
+name: Deploy gh-pages to Pages
+
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one concurrent Pages deploy at a time.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: gh-pages
+      # actions/configure-pages was 404'ing from the runner's codeload
+      # mirror for every pinned SHA (other actions on the same runner
+      # downloaded fine), so it's intentionally omitted. configure-pages
+      # is only required when you need its `base_url` output or when
+      # generating Jekyll config — for a plain static-file upload it's
+      # optional. Add it back when GitHub's mirror catches up.
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
