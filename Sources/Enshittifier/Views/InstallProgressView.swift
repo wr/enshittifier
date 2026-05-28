@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import AppKit
 
 /// Thread-safe one-way cancellation flag. The patch/restore loops run on
 /// a background queue and poll `isCancelled` between fonts; the Cancel
@@ -55,6 +56,8 @@ final class InstallProgress: Identifiable {
         case .start(let total):
             fontTotal = total
             fontsCompleted = 0
+            phaseIndex = 0
+            rows = []
             stage = .patching
         case .progress(_, let name):
             currentLabel = name
@@ -144,7 +147,10 @@ struct InstallProgressView: View {
                 .padding(.top, 28)
                 .padding(.bottom, hasFailures ? 18 : 22)
 
-            if !progress.finished {
+            // Cancel is only offered while patching (Enshittify). Restore
+            // — including the rollback that a cancel triggers — isn't
+            // cancellable, so its in-flight state shows no footer button.
+            if !progress.finished && progress.action != "Restoring" {
                 Divider()
                 HStack {
                     Spacer()
@@ -154,6 +160,7 @@ struct InstallProgressView: View {
                     }
                     .controlSize(.large)
                     .keyboardShortcut(.cancelAction)
+                    .focusEffectDisabled()
                     .disabled(progress.cancelling)
                 }
                 .padding(16)
@@ -162,6 +169,13 @@ struct InstallProgressView: View {
                 failureList
                 Divider()
                 HStack {
+                    Button {
+                        copyDebugInfo()
+                    } label: {
+                        Label(copiedDebug ? "Copied" : "Copy Debug Info",
+                              systemImage: copiedDebug ? "checkmark" : "doc.on.clipboard")
+                    }
+                    .controlSize(.large)
                     Spacer()
                     Button("Done") { dismiss() }
                         .keyboardShortcut(.defaultAction)
@@ -171,6 +185,60 @@ struct InstallProgressView: View {
             }
         }
         .frame(width: 460)
+    }
+
+    @State private var copiedDebug = false
+
+    /// Copies a structured, AI-readable report of the run to the clipboard
+    /// so the user can paste it straight into a chat/issue for diagnosis.
+    private func copyDebugInfo() {
+        let info = Bundle.main.infoDictionary
+        let appVer = (info?["CFBundleShortVersionString"] as? String) ?? "?"
+        let build = (info?["CFBundleVersion"] as? String) ?? "?"
+
+        var lines: [String] = []
+        lines.append("# Enshittifier \(progress.action.lowercased()) report")
+        lines.append("")
+        lines.append("- action: \(progress.action)")
+        lines.append("- app: \(appVer) (build \(build))")
+        lines.append("- macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+        lines.append("- arch: \(machineArch())")
+        lines.append("- total: \(progress.rows.count), succeeded: \(progress.successCount), failed: \(progress.failureCount)")
+        lines.append("")
+        lines.append("## Failures")
+        let failures = progress.rows.filter { !$0.success }
+        if failures.isEmpty {
+            lines.append("(none)")
+        } else {
+            for row in failures {
+                lines.append("- \(row.name): \(row.detail ?? "no detail provided")")
+            }
+        }
+        if progress.successCount > 0 {
+            lines.append("")
+            lines.append("## Succeeded")
+            for row in progress.rows where row.success {
+                lines.append("- \(row.name)")
+            }
+        }
+
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(lines.joined(separator: "\n"), forType: .string)
+
+        copiedDebug = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            copiedDebug = false
+        }
+    }
+
+    private func machineArch() -> String {
+        var sysinfo = utsname()
+        uname(&sysinfo)
+        return withUnsafePointer(to: &sysinfo.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
+        }
     }
 
     // MARK: - Header (state-dependent)
@@ -246,7 +314,7 @@ struct InstallProgressView: View {
 
     private var subtitle: String {
         if progress.cancelling && !progress.finished {
-            return "Cancelling\u{2026}"
+            return "Cancelling \u{2014} undoing changes\u{2026}"
         }
         switch progress.stage {
         case .patching:

@@ -555,6 +555,9 @@ struct ContentView: View {
         let selected = model.selectedStyles
         guard !selected.isEmpty else { return }
         let affected = affectedFamilyIDs(forStyleIDs: Set(selected.map(\.id)))
+        // Remember which files this run touches so a cancel can roll back
+        // exactly these (and nothing pre-existing).
+        let selectedURLs = Set(selected.map(\.url.path))
 
         installInFlight = true
         defer { installInFlight = false }
@@ -578,6 +581,30 @@ struct ContentView: View {
             Task { @MainActor in
                 progress.apply(update)
             }
+        }
+
+        if result.cancelled {
+            // Cancel == undo everything: restore the backups of whatever
+            // got patched before the user bailed. The install left those
+            // un-finalized, so this restore is the only font-service
+            // bounce. Reuses the same modal (now showing "Undoing…").
+            await loadRestoreFamilies()
+            let undo = model.allRestoreEntries.filter {
+                selectedURLs.contains($0.originalPath.path) || selectedURLs.contains($0.livePath.path)
+            }
+            if !undo.isEmpty {
+                await MainActor.run { progress.action = "Restoring" }
+                _ = await RestoreService.restore(entries: undo) { update in
+                    Task { @MainActor in progress.apply(update) }
+                }
+            }
+            await MainActor.run {
+                progress.markFinished()
+                model.selectedStyleIDs.removeAll()
+            }
+            await loadRestoreFamilies()
+            await finishProgress(succeeded: true)
+            return
         }
 
         await MainActor.run {
@@ -614,14 +641,11 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
-        let cancel = CancellationFlag()
-        installCancelFlag = cancel
         model.reloadingFamilyIDs = affected
 
-        let result = await RestoreService.restore(
-            entries: selected,
-            isCancelled: { cancel.isCancelled }
-        ) { update in
+        // Restore isn't cancellable (the modal hides the Cancel button
+        // when action == "Restoring").
+        let result = await RestoreService.restore(entries: selected) { update in
             Task { @MainActor in
                 progress.apply(update)
             }
@@ -652,14 +676,9 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
-        let cancel = CancellationFlag()
-        installCancelFlag = cancel
         model.reloadingFamilyIDs = affected
 
-        let result = await RestoreService.restore(
-            entries: entries,
-            isCancelled: { cancel.isCancelled }
-        ) { update in
+        let result = await RestoreService.restore(entries: entries) { update in
             Task { @MainActor in
                 progress.apply(update)
             }

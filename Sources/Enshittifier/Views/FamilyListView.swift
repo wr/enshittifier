@@ -295,6 +295,12 @@ struct RestoreGridView: View {
     @Environment(AppModel.self) private var model
     let families: [RestoreFamily]
 
+    @State private var tileFrames: [String: CGRect] = [:]
+    @State private var marquee: CGRect?
+    @State private var marqueeBase: Set<String> = []
+
+    private static let space = "restoregrid"
+
     var body: some View {
         if model.viewMode == .grid {
             ScrollView {
@@ -303,6 +309,14 @@ struct RestoreGridView: View {
                           spacing: 16) {
                     ForEach(families) { family in
                         RestoreFamilyTile(family: family)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: TileFramesKey.self,
+                                        value: [family.id: geo.frame(in: .named(Self.space))]
+                                    )
+                                }
+                            )
                     }
                 }
                 .padding(20)
@@ -312,6 +326,10 @@ struct RestoreGridView: View {
                         .onTapGesture { model.clearSelection() }
                 )
             }
+            .coordinateSpace(name: Self.space)
+            .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
+            .overlay(alignment: .topLeading) { marqueeRect }
+            .gesture(marqueeGesture)
         } else {
             List {
                 ForEach(families) { family in
@@ -322,6 +340,42 @@ struct RestoreGridView: View {
             }
             .listStyle(.inset)
         }
+    }
+
+    @ViewBuilder
+    private var marqueeRect: some View {
+        if let m = marquee {
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.12))
+                .overlay(Rectangle().strokeBorder(Color.accentColor, lineWidth: 1))
+                .frame(width: m.width, height: m.height)
+                .offset(x: m.minX, y: m.minY)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var marqueeGesture: some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named(Self.space))
+            .onChanged { value in
+                if marquee == nil {
+                    let mods = NSEvent.modifierFlags
+                    let additive = mods.contains(.command) || mods.contains(.shift)
+                    marqueeBase = additive ? model.selectedRestoreIDs : []
+                }
+                let rect = CGRect(
+                    x: min(value.startLocation.x, value.location.x),
+                    y: min(value.startLocation.y, value.location.y),
+                    width: abs(value.location.x - value.startLocation.x),
+                    height: abs(value.location.y - value.startLocation.y)
+                )
+                marquee = rect
+                var hit = Set<String>()
+                for family in families where (tileFrames[family.id]?.intersects(rect) ?? false) {
+                    hit.formUnion(family.entries.map(\.id))
+                }
+                model.selectedRestoreIDs = marqueeBase.union(hit)
+            }
+            .onEnded { _ in marquee = nil }
     }
 }
 
