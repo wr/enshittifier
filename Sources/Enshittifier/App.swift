@@ -25,5 +25,11 @@ struct EnshittifierApp: App {
                 .disabled(!updater.canCheckForUpdates)
             }
         }
+
+        Settings {
+            SettingsView()
+                .environment(model)
+                .environmentObject(updater)
+        }
     }
 }

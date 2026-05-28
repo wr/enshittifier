@@ -60,12 +60,38 @@ final class AppModel {
         var id: String { rawValue }
     }
 
+    private static let viewModeDefaultsKey = "defaultViewMode"
+    private static let tileSizeDefaultsKey = "defaultTileSize"
+
     var tab: Tab = .allFonts
-    var viewMode: ViewMode = .grid
+    /// Persisted as the launch default via `UserDefaults`. The didSet
+    /// write-through also keeps the stored preference in step with live
+    /// toolbar changes, so the choice survives the next launch.
+    var viewMode: ViewMode = .grid {
+        didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: Self.viewModeDefaultsKey) }
+    }
     var locationFilter: LocationFilter = .all
     var activationFilter: ActivationFilter = .all
     /// Tile width for grid view; bound to size slider (range 128…260).
-    var tileSize: Double = 168
+    /// Persisted as the launch default via `UserDefaults`.
+    var tileSize: Double = 168 {
+        didSet { UserDefaults.standard.set(tileSize, forKey: Self.tileSizeDefaultsKey) }
+    }
+
+    init() {
+        // Seed the launch defaults from the stored preferences. A didSet
+        // write-back here would just re-store the value we read, so it's a
+        // harmless no-op if it fires.
+        let defaults = UserDefaults.standard
+        if let raw = defaults.string(forKey: Self.viewModeDefaultsKey),
+           let stored = ViewMode(rawValue: raw) {
+            viewMode = stored
+        }
+        let storedTileSize = defaults.double(forKey: Self.tileSizeDefaultsKey)
+        if storedTileSize > 0 {
+            tileSize = min(max(storedTileSize, 128), 260)
+        }
+    }
     /// Bumped after every install/restore so font-preview views can use
     /// `.id(model.fontGeneration)` to force SwiftUI to re-resolve fonts
     /// against CoreText's freshly-updated registration.

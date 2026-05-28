@@ -34,4 +34,12 @@ final class UpdaterController: ObservableObject {
     func checkForUpdates() {
         controller.checkForUpdates(nil)
     }
+
+    /// Sparkle's scheduled-check preference. Sparkle persists this itself
+    /// (under `SUEnableAutomaticChecks`), so the toggle state survives
+    /// relaunches without any extra storage on our side.
+    var automaticallyChecksForUpdates: Bool {
+        get { controller.updater.automaticallyChecksForUpdates }
+        set { controller.updater.automaticallyChecksForUpdates = newValue }
+    }
 }
