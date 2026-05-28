@@ -5,20 +5,28 @@ import Observation
 final class AppModel {
     enum Tab: String, CaseIterable, Identifiable, Hashable {
         case allFonts = "All Fonts"
-        case regularFonts = "Regular Fonts"
-        case enshittified = "Enshittified Fonts"
+        case unshittified = "Un-shittified"
+        case enshittified = "Enshittified"
+        case restoreOriginals = "Restore Originals"
 
         var id: String { rawValue }
         var systemImage: String {
             switch self {
             case .allFonts: return "textformat"
-            case .regularFonts: return "character.book.closed"
+            case .unshittified: return "character.book.closed"
             case .enshittified: return "wand.and.stars"
+            case .restoreOriginals: return "arrow.uturn.backward"
             }
         }
 
-        /// True when the tab is showing installable (un-patched) families.
-        var isInstallTab: Bool { self != .enshittified }
+        /// True when the tab lets the user pick fonts to enshittify.
+        var isInstallTab: Bool { self == .allFonts || self == .unshittified }
+
+        /// True when the tab is purely informational — no selection, no
+        /// primary action. Used by the Enshittified tab so it doubles as
+        /// a "what's been changed" surface without inviting clicks that
+        /// belong on Restore Originals.
+        var isReadOnly: Bool { self == .enshittified }
     }
 
     enum LoadState {
@@ -80,7 +88,7 @@ final class AppModel {
     // MARK: Derived
 
     /// Set of absolute file paths currently recorded as patched in the
-    /// origins manifest. Used to filter "Regular Fonts" vs "Enshittified
+    /// origins manifest. Used to filter "Un-shittified" vs "Enshittified
     /// Fonts" and to mark families as patched.
     ///
     /// Includes both `originalPath` (the pre-patch location, which is what
@@ -117,9 +125,19 @@ final class AppModel {
         switch tab {
         case .allFonts:
             base = families
-        case .regularFonts:
-            base = families.filter { !isFamilyFullyPatched($0) }
+        case .unshittified:
+            // Any family with even one patched style is considered
+            // "shittified" for the purposes of this list — re-patching
+            // already-patched fonts is a non-feature, so we hide them
+            // here entirely. The All Fonts tab still shows everything.
+            base = families.filter { !isFamilyPartiallyPatched($0) }
         case .enshittified:
+            // Read-only view of what's currently patched. Driven off the
+            // same `families` list so previews come from live patched
+            // bytes via `family.previewURL`. Restore actions live on the
+            // dedicated `.restoreOriginals` tab.
+            base = families.filter { isFamilyFullyPatched($0) || isFamilyPartiallyPatched($0) }
+        case .restoreOriginals:
             return []  // handled via restoreFamilies path
         }
 

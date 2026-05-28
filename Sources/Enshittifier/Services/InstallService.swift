@@ -17,8 +17,8 @@ enum InstallService {
     /// should marshal to the main actor if updating UI).
     ///
     /// Same on-disk contract as the Python installer (W-114, W-124):
-    ///  - Backup folder:  ~/Desktop/Fonts (Backup)/
-    ///  - Manifest:       ~/Desktop/Fonts (Backup)/origins.json
+    ///  - Backup folder:  ~/Library/Font Backups/
+    ///  - Manifest:       ~/Library/Font Backups/origins.json
     ///  - System fonts:   copy to ~/Library/Fonts/, patch the copy
     ///  - User fonts:     patch original in place
     ///
