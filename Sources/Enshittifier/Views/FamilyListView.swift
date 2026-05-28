@@ -788,11 +788,16 @@ struct FontSampleTile: View {
                 .fill(isSelected
                       ? AnyShapeStyle(Color.accentColor.opacity(0.16))
                       : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
+                // Slight drop shadow so each tile reads as a card against
+                // the window background.
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
 
+            // Unselected tiles lean on the drop shadow alone for
+            // separation; only the selected state draws a border.
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(
-                    isSelected ? Color.accentColor : Color.primary.opacity(0.08),
-                    lineWidth: isSelected ? 2 : 0.5
+                    isSelected ? Color.accentColor : Color.clear,
+                    lineWidth: isSelected ? 2 : 0
                 )
 
             // Centered sample — supports multi-line via \n. While

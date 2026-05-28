@@ -17,6 +17,7 @@ struct ExtensionCalloutView: View {
                 VStack(spacing: 8) {
                     targetIcon
                         .frame(width: 60, height: 60)
+                        .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
                         .padding(.top, 4)
 
                     Text("Browser Extension")
