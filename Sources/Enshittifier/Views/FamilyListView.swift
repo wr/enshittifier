@@ -42,6 +42,13 @@ struct FamilyGridView: View {
                 }
                 .padding(20)
             }
+            // A click on empty space (gaps, padding, below the last row)
+            // falls through to this background and clears the selection.
+            .background(
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { model.clearSelection() }
+            )
             .coordinateSpace(name: Self.space)
             .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
             .overlay(alignment: .topLeading) { marqueeRect }
@@ -297,6 +304,11 @@ struct RestoreGridView: View {
                 }
                 .padding(20)
             }
+            .background(
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { model.clearSelection() }
+            )
         } else {
             List {
                 ForEach(families) { family in
@@ -726,9 +738,17 @@ struct FontSampleTile: View {
                     lineWidth: isSelected ? 2 : 0.5
                 )
 
-            // Centered sample — supports multi-line via \n
+            // Centered sample — supports multi-line via \n. While
+            // reloading we deliberately render the placeholder in the
+            // SYSTEM font, never `resolvedSampleFont`: the latter can fall
+            // back to `.custom(family)`, which routes through CoreText/
+            // fontd — and these tiles re-render exactly while the font
+            // daemon is bounced during a patch/restore, so resolving a
+            // family name there can block the main thread (the occasional
+            // post-op hang). The blurred system-font shape reads fine
+            // behind the spinner.
             Text(sample)
-                .font(resolvedSampleFont)
+                .font(isReloading ? .system(size: sampleFontSize) : resolvedSampleFont)
                 .lineSpacing(2)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)

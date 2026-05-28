@@ -151,7 +151,7 @@ struct InstallProgressView: View {
                 Text(title)
                     .font(.title2.weight(.semibold))
                 Text(subtitle)
-                    .font(.callout)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -174,7 +174,7 @@ struct InstallProgressView: View {
                         Text("\(Int(progress.fraction * 100))%")
                             .fontWeight(.medium)
                     }
-                    .font(.caption.monospacedDigit())
+                    .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
                 }
             }

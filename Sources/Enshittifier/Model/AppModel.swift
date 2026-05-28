@@ -15,7 +15,7 @@ final class AppModel {
             case .allFonts: return "square.grid.2x2"
             case .unshittified: return "character.book.closed"
             case .enshittified: return "wand.and.stars"
-            case .restoreOriginals: return "arrow.uturn.backward"
+            case .restoreOriginals: return "archivebox"
             }
         }
 
@@ -82,6 +82,10 @@ final class AppModel {
     /// Anchor for shift-range selection — the family id of the last
     /// plain/⌘ click. Range clicks select from here to the target.
     var selectionAnchorFamilyID: String?
+    /// Selection snapshot as of the last plain/⌘ click. ⇧-range unions
+    /// this with the anchor→target run so earlier ⌘-built selections
+    /// aren't wiped out by a later range extension.
+    var selectionBaseStyleIDs: Set<String> = []
     /// Family ids whose preview is being re-resolved right after a patch.
     /// Tiles show a spinner while in this set, then flip to the new glyph.
     var reloadingFamilyIDs: Set<String> = []
@@ -211,35 +215,40 @@ final class AppModel {
     /// Font Book / Finder–style click selection.
     /// - `.replace`: select just this family, clearing the rest.
     /// - `.toggle` (⌘-click): add/remove this family from the selection.
-    /// - `.range` (⇧-click): select the contiguous run from the anchor to
-    ///   this family in `visible` order, replacing the prior selection.
+    /// - `.range` (⇧-click): union the *base* selection (everything as of
+    ///   the last plain/⌘ click) with the contiguous run from the anchor
+    ///   to this family. This is what lets `1–5`, ⌘9, `⇧14` end up as
+    ///   `1–5, 9–14` rather than just the latest range.
     ///
-    /// Fully-patched families are skipped — they aren't installable, so
-    /// including them in a range or replace would select already-patched
+    /// Fully-patched families are skipped on the install tabs — they
+    /// aren't installable, so including them would select already-patched
     /// styles. `visible` is the currently-displayed, ordered family list.
     func clickFamily(_ family: FontFamily, in visible: [FontFamily], mode: SelectMode) {
         switch mode {
         case .replace:
             selectedStyleIDs = Set(family.styles.map(\.id))
             selectionAnchorFamilyID = family.id
+            selectionBaseStyleIDs = selectedStyleIDs
         case .toggle:
             toggleFamily(family)
             selectionAnchorFamilyID = family.id
+            selectionBaseStyleIDs = selectedStyleIDs
         case .range:
             guard let anchorID = selectionAnchorFamilyID,
                   let a = visible.firstIndex(where: { $0.id == anchorID }),
                   let b = visible.firstIndex(where: { $0.id == family.id }) else {
                 selectedStyleIDs = Set(family.styles.map(\.id))
                 selectionAnchorFamilyID = family.id
+                selectionBaseStyleIDs = selectedStyleIDs
                 return
             }
             let lo = min(a, b), hi = max(a, b)
-            selectedStyleIDs = Set(
-                visible[lo...hi]
-                    .filter { !isFamilyFullyPatched($0) }
-                    .flatMap { $0.styles.map(\.id) }
-            )
-            // Anchor stays put so the user can grow/shrink the range.
+            let rangeIDs = visible[lo...hi]
+                .filter { tab == .enshittified || !isFamilyFullyPatched($0) }
+                .flatMap { $0.styles.map(\.id) }
+            // Union with the base so prior ⌘-built selections survive.
+            // Anchor + base stay put so the range can grow/shrink.
+            selectedStyleIDs = selectionBaseStyleIDs.union(rangeIDs)
         }
     }
 
@@ -251,14 +260,26 @@ final class AppModel {
         selectedStyleIDs.removeAll()
     }
 
+    /// Clear selection on whichever side is active (used by dead-space
+    /// clicks in the grid). Resets anchors so the next ⇧-click starts fresh.
+    func clearSelection() {
+        selectedStyleIDs.removeAll()
+        selectedRestoreIDs.removeAll()
+        selectionAnchorFamilyID = nil
+        restoreSelectionAnchorID = nil
+        selectionBaseStyleIDs = []
+        selectionBaseRestoreIDs = []
+    }
+
     var selectedStyles: [FontStyle] {
         families.flatMap { $0.styles }.filter { selectedStyleIDs.contains($0.id) }
     }
 
     // MARK: Restore-side derived
 
-    /// Anchor for ⇧-range selection on the Font Backups tab.
+    /// Anchor + base snapshot for ⇧-range selection on the Font Backups tab.
     var restoreSelectionAnchorID: String?
+    var selectionBaseRestoreIDs: Set<String> = []
 
     var filteredRestoreFamilies: [RestoreFamily] {
         let q = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
@@ -289,19 +310,23 @@ final class AppModel {
         case .replace:
             selectedRestoreIDs = Set(family.entries.map(\.id))
             restoreSelectionAnchorID = family.id
+            selectionBaseRestoreIDs = selectedRestoreIDs
         case .toggle:
             toggleRestoreFamily(family)
             restoreSelectionAnchorID = family.id
+            selectionBaseRestoreIDs = selectedRestoreIDs
         case .range:
             guard let anchorID = restoreSelectionAnchorID,
                   let a = visible.firstIndex(where: { $0.id == anchorID }),
                   let b = visible.firstIndex(where: { $0.id == family.id }) else {
                 selectedRestoreIDs = Set(family.entries.map(\.id))
                 restoreSelectionAnchorID = family.id
+                selectionBaseRestoreIDs = selectedRestoreIDs
                 return
             }
             let lo = min(a, b), hi = max(a, b)
-            selectedRestoreIDs = Set(visible[lo...hi].flatMap { $0.entries.map(\.id) })
+            let rangeIDs = visible[lo...hi].flatMap { $0.entries.map(\.id) }
+            selectedRestoreIDs = selectionBaseRestoreIDs.union(rangeIDs)
         }
     }
 

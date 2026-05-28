@@ -558,6 +558,13 @@ struct ContentView: View {
 
         let progress = InstallProgress()
         installProgress = progress
+        // Blur + spin the affected tiles for the whole operation. The grid
+        // is dimmed-but-visible behind the sheet, so the spinner reads as
+        // "applying" in real time (DataFontCache renders from bytes, not
+        // fontd, so this is safe even during the font-service bounce).
+        // They keep their old glyph until finishProgress bumps the
+        // generation at the very end.
+        model.reloadingFamilyIDs = affected
 
         let result = await InstallService.install(styles: selected) { update in
             Task { @MainActor in
@@ -578,17 +585,9 @@ struct ContentView: View {
         // its registration is sparse for several seconds, so a full re-
         // discovery would mark almost every unrelated family as inactive.
         // The on-disk file paths didn't change, so the existing
-        // model.families is still valid. Patched-font previews refresh via
-        // the `.process`-scope registration in `refreshFontRegistration`
-        // plus the `fontGeneration` bump below — no fontd round-trip
-        // needed. The Enshittified tab still re-reads the manifest.
+        // model.families is still valid. The Enshittified tab still
+        // re-reads the manifest.
         await loadRestoreFamilies()
-        // Mark the patched families as reloading WITHOUT bumping the
-        // generation yet — the tiles keep their old (now blurred) glyph
-        // under the spinner. finishProgress flips them to the new glyph
-        // only once the sheet is gone, so the spinner reads as "applying"
-        // rather than appearing after the new preview already loaded.
-        await MainActor.run { model.reloadingFamilyIDs = affected }
 
         await finishProgress(succeeded: result.errors.isEmpty)
     }
@@ -607,6 +606,7 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
+        model.reloadingFamilyIDs = affected
 
         let result = await RestoreService.restore(entries: selected) { update in
             Task { @MainActor in
@@ -622,7 +622,6 @@ struct ContentView: View {
         // mid-bounce fontd doesn't make unrelated families flap to
         // inactive. Manifest-driven restore tab still refreshes.
         await loadRestoreFamilies()
-        await MainActor.run { model.reloadingFamilyIDs = affected }
 
         await finishProgress(succeeded: result.errors.isEmpty)
     }
@@ -640,6 +639,7 @@ struct ContentView: View {
         let progress = InstallProgress()
         progress.action = "Restoring"
         installProgress = progress
+        model.reloadingFamilyIDs = affected
 
         let result = await RestoreService.restore(entries: entries) { update in
             Task { @MainActor in
@@ -652,7 +652,6 @@ struct ContentView: View {
             model.selectedStyleIDs.removeAll()
         }
         await loadRestoreFamilies()
-        await MainActor.run { model.reloadingFamilyIDs = affected }
 
         await finishProgress(succeeded: result.errors.isEmpty)
     }
