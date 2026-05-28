@@ -15,14 +15,6 @@ enum Paths {
             .appendingPathComponent("Library/Font Backups", isDirectory: true)
     }
 
-    /// Pre-W-194 location. Read by `BackupMigrator` to move existing
-    /// installs to `backupDir`; never written to and not referenced by
-    /// install / restore paths.
-    static var legacyDesktopBackupDir: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop/Fonts (Backup)", isDirectory: true)
-    }
-
     static var originsFile: URL {
         backupDir.appendingPathComponent("origins.json", isDirectory: false)
     }
