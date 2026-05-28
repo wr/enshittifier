@@ -19,8 +19,12 @@ enum BackupMigrator {
         var errors: [String] = []
     }
 
+    /// `phase` is called (off the main actor) when a perceptible step
+    /// begins, so the UI can label what's happening. It only fires when
+    /// there's real work to do — a no-op launch reports nothing, which is
+    /// what lets the caller skip showing any progress UI at all.
     @discardableResult
-    static func migrateIfNeeded() -> Outcome {
+    static func migrateIfNeeded(phase: @Sendable (String) -> Void = { _ in }) -> Outcome {
         var outcome = Outcome()
         let fm = FileManager.default
 
@@ -28,21 +32,27 @@ enum BackupMigrator {
         // the legacy folder still exists — if files have already moved but
         // the manifest still points at the old root, this is the only
         // chance to fix it.
-        rewriteManifestPaths(fm: fm, outcome: &outcome)
+        rewriteManifestPaths(fm: fm, outcome: &outcome, phase: phase)
 
         // Then move the legacy directory. If this fails, the manifest is
         // already pointing at the new location, so a retry next launch
         // will find any remaining work via the same idempotent path.
-        moveLegacyDirectory(fm: fm, outcome: &outcome)
+        moveLegacyDirectory(fm: fm, outcome: &outcome, phase: phase)
 
         return outcome
     }
 
-    private static func moveLegacyDirectory(fm: FileManager, outcome: inout Outcome) {
+    private static func moveLegacyDirectory(
+        fm: FileManager,
+        outcome: inout Outcome,
+        phase: @Sendable (String) -> Void
+    ) {
         let legacy = Paths.legacyDesktopBackupDir
         let target = Paths.backupDir
 
         guard fm.fileExists(atPath: legacy.path) else { return }
+
+        phase("Moving your font backups\u{2026}")
 
         do {
             if !fm.fileExists(atPath: target.path) {
@@ -79,7 +89,11 @@ enum BackupMigrator {
         }
     }
 
-    private static func rewriteManifestPaths(fm: FileManager, outcome: inout Outcome) {
+    private static func rewriteManifestPaths(
+        fm: FileManager,
+        outcome: inout Outcome,
+        phase: @Sendable (String) -> Void
+    ) {
         let manifestURL = Paths.originsFile
         guard fm.fileExists(atPath: manifestURL.path) else { return }
 
@@ -131,6 +145,8 @@ enum BackupMigrator {
         }
 
         guard changed else { return }
+
+        phase("Updating font records\u{2026}")
 
         do {
             let rewritten = try JSONSerialization.data(
