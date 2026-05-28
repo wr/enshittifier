@@ -23,6 +23,12 @@ struct FamilyGridView: View {
     @Environment(AppModel.self) private var model
     let families: [FontFamily]
 
+    @State private var tileFrames: [String: CGRect] = [:]
+    @State private var marquee: CGRect?
+    @State private var marqueeBase: Set<String> = []
+
+    private static let space = "familygrid"
+
     var body: some View {
         if model.viewMode == .grid {
             ScrollView {
@@ -31,10 +37,15 @@ struct FamilyGridView: View {
                           spacing: 16) {
                     ForEach(families) { family in
                         FamilyTile(family: family)
+                            .background(frameReporter(id: family.id))
                     }
                 }
                 .padding(20)
             }
+            .coordinateSpace(name: Self.space)
+            .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
+            .overlay(alignment: .topLeading) { marqueeRect }
+            .gesture(marqueeGesture)
         } else {
             List {
                 ForEach(families) { family in
@@ -45,6 +56,70 @@ struct FamilyGridView: View {
             }
             .listStyle(.inset)
         }
+    }
+
+    private func frameReporter(id: String) -> some View {
+        GeometryReader { geo in
+            Color.clear.preference(
+                key: TileFramesKey.self,
+                value: [id: geo.frame(in: .named(Self.space))]
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var marqueeRect: some View {
+        if let m = marquee {
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.12))
+                .overlay(Rectangle().strokeBorder(Color.accentColor, lineWidth: 1))
+                .frame(width: m.width, height: m.height)
+                .offset(x: m.minX, y: m.minY)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var marqueeGesture: some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named(Self.space))
+            .onChanged { value in
+                if marquee == nil {
+                    // Capture the starting selection so ⌘/⇧-drag adds to it;
+                    // a plain drag replaces.
+                    let mods = NSEvent.modifierFlags
+                    let additive = mods.contains(.command) || mods.contains(.shift)
+                    marqueeBase = additive ? model.selectedStyleIDs : []
+                }
+                let rect = CGRect(
+                    x: min(value.startLocation.x, value.location.x),
+                    y: min(value.startLocation.y, value.location.y),
+                    width: abs(value.location.x - value.startLocation.x),
+                    height: abs(value.location.y - value.startLocation.y)
+                )
+                marquee = rect
+                applyMarquee(rect)
+            }
+            .onEnded { _ in marquee = nil }
+    }
+
+    private func applyMarquee(_ rect: CGRect) {
+        var hit = Set<String>()
+        for family in families {
+            guard let frame = tileFrames[family.id], frame.intersects(rect) else { continue }
+            // Skip locked (fully-patched) families on the install tabs;
+            // everything on the Enshittified tab is selectable for restore.
+            if model.tab.selectsForInstall && model.isFamilyFullyPatched(family) { continue }
+            hit.formUnion(family.styles.map(\.id))
+        }
+        model.selectedStyleIDs = marqueeBase.union(hit)
+    }
+}
+
+/// Collects each tile's frame (keyed by family id) in the grid coordinate
+/// space so the marquee can hit-test against them.
+private struct TileFramesKey: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -64,7 +139,7 @@ private struct FamilyTile: View {
     /// the remaining styles; `InstallService.installOne` is idempotent
     /// on its backup step (skips when a backup already exists) so a
     /// mixed selection re-applies safely.
-    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
+    private var isLocked: Bool { model.tab.selectsForInstall && model.isFamilyFullyPatched(family) }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -75,7 +150,6 @@ private struct FamilyTile: View {
                 styleCount: family.styleCount,
                 location: locationKind,
                 isSelected: isSelected,
-                selectionState: selection,
                 tileHeight: model.tileSize * 0.78,
                 isActivated: !isFamilyInactive,
                 isPatched: isPatched,
@@ -118,31 +192,22 @@ private struct FamilyListRow: View {
     let family: FontFamily
 
     private var selection: SelectionState { model.selectionState(for: family) }
+    private var isSelected: Bool { selection != .off && !isLocked }
     private var isFamilyInactive: Bool {
         !family.styles.isEmpty && family.styles.allSatisfy { !$0.isActivated }
     }
     private var isPatched: Bool { model.isFamilyPartiallyPatched(family) }
-    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
+    private var isLocked: Bool { model.tab.selectsForInstall && model.isFamilyFullyPatched(family) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            if !isLocked {
-                SelectionCircle(
-                    state: selection,
-                    onTap: { model.clickFamily(family, in: model.filteredFamilies, mode: .toggle) },
-                    size: 26
-                )
-                .padding(.top, 6)
-            } else {
-                // Keep the row's leading column reserved so the text
-                // baseline doesn't shift between locked and unlocked
-                // rows, and surface a small lock affordance so the row
-                // doesn't look like dead pixels — discoverability for
-                // right-click "Restore Original…" is otherwise nil.
+            if isLocked {
+                // Lock affordance for already-patched families on the
+                // install tabs (right-click to restore).
                 Image(systemName: "lock.fill")
                     .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(.tertiary)
-                    .frame(width: 26, height: 26)
+                    .frame(width: 18, height: 18)
                     .padding(.top, 6)
                     .help("Already enshittified. Right-click to restore.")
             }
@@ -175,6 +240,11 @@ private struct FamilyListRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+        )
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isLocked else { return }
@@ -256,12 +326,13 @@ private struct RestoreFamilyTile: View {
                 styleCount: family.entryCount,
                 location: locationKind,
                 isSelected: isSelected,
-                selectionState: selection,
                 tileHeight: model.tileSize * 0.78
             )
             .id(model.fontGeneration)
             .contentShape(Rectangle())
-            .onTapGesture { model.toggleRestoreFamily(family) }
+            .onTapGesture {
+                model.clickRestoreFamily(family, in: model.filteredRestoreFamilies, mode: currentSelectMode())
+            }
             .help(family.name)
             .contextMenu { restoreContextMenu(for: family) }
 
@@ -296,9 +367,6 @@ private struct RestoreFamilyListRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
-            SelectionCircle(state: selection, onTap: { model.toggleRestoreFamily(family) }, size: 26)
-                .padding(.top, 6)
-
             VStack(alignment: .leading, spacing: 6) {
                 Text(listSample)
                     .font(resolvedListFont)
@@ -323,8 +391,15 @@ private struct RestoreFamilyListRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+        )
         .contentShape(Rectangle())
-        .onTapGesture { model.toggleRestoreFamily(family) }
+        .onTapGesture {
+            model.clickRestoreFamily(family, in: model.filteredRestoreFamilies, mode: currentSelectMode())
+        }
         .contextMenu { restoreContextMenu(for: family) }
     }
 
@@ -372,7 +447,7 @@ private struct EnvironmentAwareInstallMenu: View {
     let family: FontFamily
 
     private var isLocked: Bool {
-        model.tab.isReadOnly || model.isFamilyFullyPatched(family)
+        model.tab.selectsForInstall && model.isFamilyFullyPatched(family)
     }
 
     var body: some View {
@@ -476,24 +551,24 @@ private struct LocationBadge: View {
     var compact: Bool = false
     @State private var showExplainer = false
 
-    // Amber chip palette. Light mode: pale cream bg with dark brown text.
-    // Dark mode: translucent amber bg with warm cream text so the chip
-    // reads as a tinted highlight on dark surfaces instead of glaring.
+    // Graphite chip palette — deliberately neutral so the "System font"
+    // tag doesn't read as a warning and never competes with the orange
+    // Enshittify action / Patched badge sitting next to it.
     private var chipBackground: Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             if appearance.isDark {
-                return NSColor(srgbRed: 0.85, green: 0.50, blue: 0.10, alpha: 0.28)
+                return NSColor(srgbRed: 0.55, green: 0.56, blue: 0.58, alpha: 0.28)
             }
-            return NSColor(srgbRed: 1.00, green: 0.91, blue: 0.78, alpha: 1.0)
+            return NSColor(srgbRed: 0.90, green: 0.90, blue: 0.92, alpha: 1.0)
         })
     }
 
     private var chipForeground: Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             if appearance.isDark {
-                return NSColor(srgbRed: 1.00, green: 0.80, blue: 0.55, alpha: 1.0)
+                return NSColor(srgbRed: 0.82, green: 0.83, blue: 0.85, alpha: 1.0)
             }
-            return NSColor(srgbRed: 0.55, green: 0.27, blue: 0.00, alpha: 1.0)
+            return NSColor(srgbRed: 0.30, green: 0.31, blue: 0.34, alpha: 1.0)
         })
     }
 
@@ -531,27 +606,27 @@ private struct LocationBadge: View {
 }
 
 /// "Patched" pill — pairs the in-app PoopGlyph with the word so the
-/// badge reads at a glance on dense grids. Violet palette so it's
-/// visually distinct from `LocationBadge`'s amber "System font" chip
-/// (the two appear side-by-side on shadowed system fonts).
+/// badge reads at a glance on dense grids. Orange palette to match the
+/// Enshittify action; the neutral graphite "System font" chip sits
+/// beside it on shadowed system fonts without clashing.
 struct PatchedBadge: View {
     var compact: Bool = false
 
     private var chipBackground: Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             if appearance.isDark {
-                return NSColor(srgbRed: 0.55, green: 0.35, blue: 0.85, alpha: 0.30)
+                return NSColor(srgbRed: 0.90, green: 0.50, blue: 0.10, alpha: 0.30)
             }
-            return NSColor(srgbRed: 0.92, green: 0.87, blue: 0.99, alpha: 1.0)
+            return NSColor(srgbRed: 1.00, green: 0.88, blue: 0.74, alpha: 1.0)
         })
     }
 
     private var chipForeground: Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             if appearance.isDark {
-                return NSColor(srgbRed: 0.82, green: 0.72, blue: 1.00, alpha: 1.0)
+                return NSColor(srgbRed: 1.00, green: 0.78, blue: 0.50, alpha: 1.0)
             }
-            return NSColor(srgbRed: 0.38, green: 0.18, blue: 0.62, alpha: 1.0)
+            return NSColor(srgbRed: 0.60, green: 0.30, blue: 0.00, alpha: 1.0)
         })
     }
 
@@ -631,7 +706,6 @@ struct FontSampleTile: View {
     let styleCount: Int
     let location: FamilyTileLocation
     let isSelected: Bool
-    let selectionState: SelectionState
     var tileHeight: CGFloat = 120
     var isActivated: Bool = true
     var isPatched: Bool = false
@@ -687,19 +761,6 @@ struct FontSampleTile: View {
                 .padding(.horizontal, 10)
                 .padding(.bottom, 8)
             }
-
-            // Top-right selection indicator (blue chip only when on/partial)
-            if isSelected {
-                VStack {
-                    HStack {
-                        Spacer()
-                        SelectionCircleStatic(state: selectionState, size: 24)
-                            .padding(.top, 8)
-                            .padding(.trailing, 8)
-                    }
-                    Spacer()
-                }
-            }
         }
         .frame(height: tileHeight)
     }
@@ -721,27 +782,5 @@ struct FontSampleTile: View {
 
     private var styleCountText: String {
         styleCount == 1 ? "1 style" : "\(styleCount) styles"
-    }
-}
-
-/// Non-interactive blue-chip indicator (the tile's own onTap handles
-/// selection, so the chip itself doesn't need to be a button).
-private struct SelectionCircleStatic: View {
-    let state: SelectionState
-    var size: CGFloat = 24
-
-    var body: some View {
-        if state == .off { EmptyView() }
-        else {
-            ZStack {
-                Circle().fill(Color(red: 0.0, green: 0.47, blue: 1.0))
-                Image(systemName: state == .on ? "checkmark" : "minus")
-                    .font(.system(size: size * 0.5, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: size, height: size)
-            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-            .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
-        }
     }
 }

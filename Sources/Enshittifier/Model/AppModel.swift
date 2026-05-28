@@ -19,11 +19,13 @@ final class AppModel {
             }
         }
 
-        /// True when the tab is purely informational — no selection, no
-        /// primary action. Used by the Enshittified tab so it doubles as
-        /// a "what's been changed" surface without inviting clicks that
-        /// belong on Restore Originals.
-        var isReadOnly: Bool { self == .enshittified }
+        /// Tabs that select families to enshittify (install).
+        var selectsForInstall: Bool { self == .allFonts || self == .unshittified }
+
+        /// Tabs whose selection drives a restore. The Enshittified tab
+        /// selects patched FontFamilies (mapped to their backups); the
+        /// Font Backups tab selects RestoreFamilies directly.
+        var selectsForRestore: Bool { self == .enshittified || self == .restoreOriginals }
     }
 
     enum LoadState {
@@ -255,6 +257,15 @@ final class AppModel {
 
     // MARK: Restore-side derived
 
+    /// Anchor for ⇧-range selection on the Font Backups tab.
+    var restoreSelectionAnchorID: String?
+
+    var filteredRestoreFamilies: [RestoreFamily] {
+        let q = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return restoreFamilies }
+        return restoreFamilies.filter { $0.name.lowercased().contains(q) }
+    }
+
     func restoreSelectionState(for family: RestoreFamily) -> SelectionState {
         let total = family.entries.count
         let selected = family.entries.lazy.filter { self.selectedRestoreIDs.contains($0.id) }.count
@@ -269,6 +280,39 @@ final class AppModel {
             for e in family.entries { selectedRestoreIDs.remove(e.id) }
         } else {
             for e in family.entries { selectedRestoreIDs.insert(e.id) }
+        }
+    }
+
+    /// Font Book–style click selection for the Font Backups tab.
+    func clickRestoreFamily(_ family: RestoreFamily, in visible: [RestoreFamily], mode: SelectMode) {
+        switch mode {
+        case .replace:
+            selectedRestoreIDs = Set(family.entries.map(\.id))
+            restoreSelectionAnchorID = family.id
+        case .toggle:
+            toggleRestoreFamily(family)
+            restoreSelectionAnchorID = family.id
+        case .range:
+            guard let anchorID = restoreSelectionAnchorID,
+                  let a = visible.firstIndex(where: { $0.id == anchorID }),
+                  let b = visible.firstIndex(where: { $0.id == family.id }) else {
+                selectedRestoreIDs = Set(family.entries.map(\.id))
+                restoreSelectionAnchorID = family.id
+                return
+            }
+            let lo = min(a, b), hi = max(a, b)
+            selectedRestoreIDs = Set(visible[lo...hi].flatMap { $0.entries.map(\.id) })
+        }
+    }
+
+    /// Restore entries that correspond to the currently selected patched
+    /// FontFamily styles on the Enshittified tab. Matches a backup entry
+    /// when either its pre-patch path or its live (shadow) path is among
+    /// the selected style URLs.
+    func selectedEnshittifiedRestoreEntries() -> [RestoreEntry] {
+        let urls = Set(selectedStyles.map(\.url.path))
+        return allRestoreEntries.filter {
+            urls.contains($0.originalPath.path) || urls.contains($0.livePath.path)
         }
     }
 

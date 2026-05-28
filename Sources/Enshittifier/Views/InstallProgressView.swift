@@ -5,17 +5,24 @@ import Observation
 final class InstallProgress: Identifiable {
     let id = UUID()
     var action: String = "Installing"
-    /// Label shown under the action title. Either the current font being
-    /// patched, or a post-loop phase label like "Refreshing font cache…".
-    var currentFontName: String = ""
-    var completed: Int = 0
-    var total: Int = 0
+
+    /// Coarse stage of the operation. The sheet shows green/Done only at
+    /// `.done` — the finalization phases (cache flush, fontd bounce,
+    /// re-registration) advance the bar but are NOT "done" yet.
+    enum Stage { case patching, finalizing, done }
+    var stage: Stage = .patching
+
+    /// Current label under the title: the font being patched, or the
+    /// active finalization phase.
+    var currentLabel: String = ""
+    var fontTotal: Int = 0
+    var fontsCompleted: Int = 0
+    /// How many finalization phases have arrived (drives the tail of the
+    /// progress bar between patching and done).
+    var phaseIndex: Int = 0
     var rows: [Row] = []
-    var finished: Bool = false
-    /// True after every selected style has been processed but before the
-    /// finalization steps (cache flush, fontd bounce, re-registration) have
-    /// finished. The bar holds at 100% and the label says what's happening.
-    var finalizing: Bool = false
+
+    var finished: Bool { stage == .done }
 
     struct Row: Identifiable {
         let id = UUID()
@@ -27,40 +34,49 @@ final class InstallProgress: Identifiable {
     func apply(_ update: InstallUpdate) {
         switch update {
         case .start(let total):
-            self.total = total
-            self.completed = 0
+            fontTotal = total
+            fontsCompleted = 0
+            stage = .patching
         case .progress(_, let name):
-            self.currentFontName = name
+            currentLabel = name
         case .completed(let name):
-            self.completed = min(self.completed + 1, self.total)
-            self.rows.append(Row(name: name, success: true, detail: nil))
+            fontsCompleted = min(fontsCompleted + 1, fontTotal)
+            rows.append(Row(name: name, success: true, detail: nil))
         case .failed(let name, let message):
-            self.completed = min(self.completed + 1, self.total)
-            self.rows.append(Row(name: name, success: false, detail: message))
-        case .phase(let label):
-            // `.phase` events fire after `.done` to flag background work
-            // (cache flush, fontd bounce, registration). Dialog is already
-            // dismissable; we just expose the label for an inline hint.
-            self.finalizing = true
-            self.finalizingLabel = label
-            self.completed = self.total
+            fontsCompleted = min(fontsCompleted + 1, fontTotal)
+            rows.append(Row(name: name, success: false, detail: message))
         case .done:
-            // Patches are done — let the user close the dialog. Background
-            // refresh may still be in flight (tracked by `finalizing`).
-            self.finished = true
-            self.completed = self.total
+            // Patches written — but font services still need to reload.
+            // Enter the finalizing stage; green doesn't show until
+            // `.finalized`.
+            stage = .finalizing
+        case .phase(let label):
+            stage = .finalizing
+            currentLabel = label
+            phaseIndex += 1
         case .finalized:
-            self.finalizing = false
+            stage = .done
+            currentLabel = ""
         }
     }
 
-    /// Sub-label shown under "All set" while background work is in flight.
-    var finalizingLabel: String = ""
-
     func markFinished() {
-        self.finished = true
-        self.finalizing = false
-        self.completed = self.total
+        stage = .done
+        currentLabel = ""
+    }
+
+    /// 0…1 progress. Fonts fill the first 85%; the finalization phases
+    /// nudge through the last 15%; only `.done` reaches 1.0 (green).
+    var fraction: Double {
+        switch stage {
+        case .patching:
+            guard fontTotal > 0 else { return 0 }
+            return (Double(fontsCompleted) / Double(fontTotal)) * 0.85
+        case .finalizing:
+            return min(0.85 + Double(phaseIndex) * 0.07, 0.99)
+        case .done:
+            return 1.0
+        }
     }
 
     var successCount: Int { rows.filter(\.success).count }
@@ -144,14 +160,18 @@ struct InstallProgressView: View {
 
             if !progress.finished {
                 VStack(spacing: 6) {
-                    ProgressView(value: Double(progress.completed),
-                                 total: Double(max(progress.total, 1)))
+                    ProgressView(value: progress.fraction, total: 1.0)
                         .progressViewStyle(.linear)
                         .tint(accent)
+                        .animation(.easeInOut(duration: 0.25), value: progress.fraction)
                     HStack {
-                        Text("\(progress.completed) of \(progress.total)")
+                        // During patching show the font count; during the
+                        // finalization phases show the step label instead.
+                        Text(progress.stage == .patching
+                             ? "\(progress.fontsCompleted) of \(progress.fontTotal)"
+                             : "Finishing up\u{2026}")
                         Spacer()
-                        Text("\(percent)%")
+                        Text("\(Int(progress.fraction * 100))%")
                             .fontWeight(.medium)
                     }
                     .font(.caption.monospacedDigit())
@@ -191,21 +211,16 @@ struct InstallProgressView: View {
     }
 
     private var subtitle: String {
-        if progress.finalizing {
-            return progress.finalizingLabel.isEmpty ? "Refreshing font system\u{2026}" : progress.finalizingLabel
+        switch progress.stage {
+        case .patching:
+            return progress.currentLabel.isEmpty ? "Preparing\u{2026}" : progress.currentLabel
+        case .finalizing:
+            return progress.currentLabel.isEmpty ? "Reloading font services\u{2026}" : progress.currentLabel
+        case .done:
+            let s = progress.successCount
+            if hasFailures { return "\(s) \(pastVerb), \(progress.failureCount) failed" }
+            return "\(s) style\(s == 1 ? "" : "s") \(pastVerb)"
         }
-        if !progress.finished {
-            return progress.currentFontName.isEmpty ? "Preparing\u{2026}" : progress.currentFontName
-        }
-        let s = progress.successCount
-        if hasFailures {
-            return "\(s) \(pastVerb), \(progress.failureCount) failed"
-        }
-        return "\(s) style\(s == 1 ? "" : "s") \(pastVerb)"
-    }
-
-    private var percent: Int {
-        Int((Double(progress.completed) / Double(max(progress.total, 1))) * 100)
     }
 
     // MARK: - Failure list (only when finished with issues)
