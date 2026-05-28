@@ -9,105 +9,115 @@ struct ExtensionCalloutView: View {
 
     private static let extensionURL = URL(string: "https://enshittifier.wells.ee#extension")!
 
-    private let browser = DefaultBrowser.detect()
+    private let target = ExtensionTarget.resolve()
 
     var body: some View {
         if !dismissed {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "puzzlepiece.extension.fill")
-                        .foregroundStyle(.secondary)
+            ZStack(alignment: .topTrailing) {
+                VStack(spacing: 8) {
+                    targetIcon
+                        .frame(width: 40, height: 40)
+                        .padding(.top, 2)
+
                     Text("Browser Extension")
                         .font(.callout.weight(.semibold))
-                    Spacer()
+
+                    Text("Enshittify fonts on the web, too.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Button {
-                        dismissed = true
+                        NSWorkspace.shared.open(Self.extensionURL)
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        Text("Add to \(target.name)")
+                            .fontWeight(.medium)
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.plain)
-                    .help("Dismiss")
+                    .controlSize(.large)
+                    .buttonStyle(.borderedProminent)
+                    .padding(.top, 2)
                 }
-
-                // AI → 💩 — the transform, at a glance.
-                transformVisual
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-
-                Text("Enshittify fonts on the web, too.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
+                .padding(12)
 
                 Button {
-                    NSWorkspace.shared.open(Self.extensionURL)
+                    dismissed = true
                 } label: {
-                    Text(ctaTitle)
-                        .frame(maxWidth: .infinity)
+                    Image(systemName: "xmark")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
-                .controlSize(.small)
+                .buttonStyle(.plain)
+                .padding(8)
+                .help("Dismiss")
             }
-            .padding(10)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 10)
             .padding(.bottom, 10)
         }
     }
 
-    private var transformVisual: some View {
-        HStack(spacing: 10) {
-            Text("AI")
-                .font(.system(size: 26, weight: .bold, design: .serif))
-                .foregroundStyle(.primary)
-            Image(systemName: "arrow.right")
-                .font(.system(size: 15, weight: .semibold))
+    @ViewBuilder
+    private var targetIcon: some View {
+        if let icon = target.icon {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            // Fallback when the named browser isn't installed (e.g. Chrome
+            // not present on a Safari default).
+            Image(systemName: "puzzlepiece.extension.fill")
+                .font(.system(size: 30))
                 .foregroundStyle(.secondary)
-            PoopGlyph(size: 28, tint: .primary)
         }
-    }
-
-    /// "Add to Arc/Brave/Chrome/…" — the user's default browser when it's
-    /// Chromium-based (the extension only runs there), otherwise a plain
-    /// "Add to Chrome".
-    private var ctaTitle: String {
-        if let b = browser, b.isChromium {
-            return "Add to \(b.name)"
-        }
-        return "Add to Chrome"
     }
 }
 
-/// Resolves the system default browser and whether it's Chromium-based,
-/// so the extension callout can address it by name.
-enum DefaultBrowser {
-    struct Info {
+/// Resolves the browser the extension callout should pitch: the user's
+/// default browser when it's Chromium-based (the extension only runs
+/// there), otherwise Chrome as the fallback target.
+enum ExtensionTarget {
+    struct Target {
         let name: String
-        let isChromium: Bool
+        let appURL: URL?
+        var icon: NSImage? {
+            guard let appURL else { return nil }
+            return NSWorkspace.shared.icon(forFile: appURL.path)
+        }
     }
 
-    /// Bundle ids (lowercased) of Chromium-based browsers. Matched by exact
-    /// id or prefix, so beta/canary variants (e.g. com.google.Chrome.canary)
-    /// resolve too.
+    /// Bundle ids (lowercased) of Chromium/Blink-based browsers. The id read
+    /// from the app is lowercased before matching, so these stay lowercase.
+    /// Matched by exact id or `base + "."` prefix, so beta/dev/canary
+    /// variants (com.google.Chrome.canary, com.microsoft.edgemac.Dev,
+    /// com.brave.Browser.nightly, com.vivaldi.Vivaldi.snapshot, …) resolve
+    /// too — except a few Opera channels that don't follow base+suffix and
+    /// are listed explicitly.
     private static let chromiumBundleIDs: [String] = [
         "com.google.chrome",
-        "org.chromium.chromium",
+        "org.chromium.chromium",            // also ungoogled-chromium
         "com.brave.browser",
         "com.microsoft.edgemac",
-        "company.thebrowser.browser",   // Arc
-        "company.thebrowser.dia",       // Dia
+        "company.thebrowser.browser",       // Arc
+        "company.thebrowser.dia",           // Dia
         "com.vivaldi.vivaldi",
         "com.operasoftware.opera",
-        "com.operasoftware.operagx",
+        "com.operasoftware.operagx",        // Opera GX
+        "com.operasoftware.operaair",       // Opera Air
+        "com.operasoftware.operanext",      // Opera beta (not base+suffix)
+        "com.operasoftware.operadeveloper", // Opera developer
         "ru.yandex.desktop.yandex-browser",
         "com.naver.whale",
         "com.coccoc.coccoc",
-        "ai.perplexity.comet",          // Comet
-        "com.pushplaylabs.sidekick",
+        "ai.perplexity.comet",              // Comet
+        "io.wavebox.wavebox",               // Wavebox
+        "net.imput.helium",                 // Helium
+        "de.iridiumbrowser",                // Iridium
     ]
 
-    /// Friendlier names for the common cases; otherwise we fall back to the
+    /// Friendlier names for the common cases; otherwise fall back to the
     /// app bundle's display name.
     private static let prettyNames: [String: String] = [
         "com.google.chrome": "Chrome",
@@ -117,15 +127,20 @@ enum DefaultBrowser {
         "org.chromium.chromium": "Chromium",
     ]
 
-    static func detect() -> Info? {
-        guard let probe = URL(string: "https://example.com"),
-              let appURL = NSWorkspace.shared.urlForApplication(toOpen: probe),
-              let bundle = Bundle(url: appURL) else {
-            return nil
+    static func resolve() -> Target {
+        if let probe = URL(string: "https://example.com"),
+           let appURL = NSWorkspace.shared.urlForApplication(toOpen: probe),
+           let bundle = Bundle(url: appURL) {
+            let id = (bundle.bundleIdentifier ?? "").lowercased()
+            if chromiumBundleIDs.contains(where: { id == $0 || id.hasPrefix($0 + ".") }) {
+                return Target(name: name(for: id, appURL: appURL, bundle: bundle), appURL: appURL)
+            }
         }
-        let id = (bundle.bundleIdentifier ?? "").lowercased()
-        let isChromium = chromiumBundleIDs.contains { id == $0 || id.hasPrefix($0 + ".") }
-        return Info(name: name(for: id, appURL: appURL, bundle: bundle), isChromium: isChromium)
+        // Non-Chromium (Safari/Firefox) or undetectable → pitch Chrome.
+        let chromeURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: "com.google.Chrome"
+        )
+        return Target(name: "Chrome", appURL: chromeURL)
     }
 
     private static func name(for id: String, appURL: URL, bundle: Bundle) -> String {
