@@ -45,10 +45,13 @@ private struct FamilyTile: View {
         !family.styles.isEmpty && family.styles.allSatisfy { !$0.isActivated }
     }
     private var isPatched: Bool { model.isFamilyPartiallyPatched(family) }
-    /// Patched families on the install tabs aren't re-patchable, and the
-    /// Enshittified tab is read-only by design. Both collapse to "no
-    /// selection, tap does nothing".
-    private var isLocked: Bool { model.tab.isReadOnly || isPatched }
+    /// Lock the family when there's nothing left to do — either the tab
+    /// is read-only or every style is already patched. Partially-patched
+    /// families stay tappable on the install tabs so the user can finish
+    /// the remaining styles; `InstallService.installOne` is idempotent
+    /// on its backup step (skips when a backup already exists) so a
+    /// mixed selection re-applies safely.
+    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -105,13 +108,25 @@ private struct FamilyListRow: View {
         !family.styles.isEmpty && family.styles.allSatisfy { !$0.isActivated }
     }
     private var isPatched: Bool { model.isFamilyPartiallyPatched(family) }
-    private var isLocked: Bool { model.tab.isReadOnly || isPatched }
+    private var isLocked: Bool { model.tab.isReadOnly || model.isFamilyFullyPatched(family) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             if !isLocked {
                 SelectionCircle(state: selection, onTap: { model.toggleFamily(family) }, size: 26)
                     .padding(.top, 6)
+            } else {
+                // Keep the row's leading column reserved so the text
+                // baseline doesn't shift between locked and unlocked
+                // rows, and surface a small lock affordance so the row
+                // doesn't look like dead pixels — discoverability for
+                // right-click "Restore Original…" is otherwise nil.
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 26, height: 26)
+                    .padding(.top, 6)
+                    .help("Already enshittified. Right-click to restore.")
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -339,7 +354,7 @@ private struct EnvironmentAwareInstallMenu: View {
     let family: FontFamily
 
     private var isLocked: Bool {
-        model.tab.isReadOnly || model.isFamilyPartiallyPatched(family)
+        model.tab.isReadOnly || model.isFamilyFullyPatched(family)
     }
 
     var body: some View {

@@ -94,11 +94,9 @@ struct ContentView: View {
         switch tab {
         case .allFonts: return model.families.count
         case .unshittified:
-            return model.families.filter { !model.isFamilyPartiallyPatched($0) }.count
+            return model.families.filter { !model.isFamilyFullyPatched($0) }.count
         case .enshittified:
-            return model.families.filter {
-                model.isFamilyFullyPatched($0) || model.isFamilyPartiallyPatched($0)
-            }.count
+            return model.families.filter { model.isFamilyPartiallyPatched($0) }.count
         case .restoreOriginals: return model.restoreFamilies.count
         }
     }
@@ -382,12 +380,10 @@ struct ContentView: View {
         case .allFonts:
             return countSummary(filtered: model.filteredFamilies.count, total: model.families.count)
         case .unshittified:
-            let total = model.families.filter { !model.isFamilyPartiallyPatched($0) }.count
+            let total = model.families.filter { !model.isFamilyFullyPatched($0) }.count
             return countSummary(filtered: model.filteredFamilies.count, total: total)
         case .enshittified:
-            let total = model.families.filter {
-                model.isFamilyFullyPatched($0) || model.isFamilyPartiallyPatched($0)
-            }.count
+            let total = model.families.filter { model.isFamilyPartiallyPatched($0) }.count
             return "\(countSummary(filtered: model.filteredFamilies.count, total: total)) currently enshittified"
         case .restoreOriginals:
             let total = model.restoreFamilies.count
@@ -550,6 +546,12 @@ struct ContentView: View {
 
         await MainActor.run {
             progress.markFinished()
+            // Clear the selection once styles are patched. Without this,
+            // the now-patched style IDs linger in selectedStyleIDs — the
+            // footer reads "N selected" while the tiles render locked
+            // with no checkmark, and Cmd-Return would re-invoke install
+            // on already-patched styles.
+            model.selectedStyleIDs.removeAll()
         }
         // Intentionally skip `loadFonts()` here: right after a fontd bounce
         // its registration is sparse for several seconds, so a full re-
