@@ -141,7 +141,6 @@ strong { font-weight: 700; }
 .swap .ai-t {
   font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
   font-weight: 800;
-  font-style: italic;
   color: var(--accent);
 }
 .swap .ai-p {
@@ -329,51 +328,111 @@ strong { font-weight: 700; }
 
 /* ── HERO ───────────────────────────────────────────────────────── */
 
+/* Hero: a big stacked headline, then a bordered callout card holding the
+   one-liner and the two "get it" links. The band's left edge tracks the
+   720px body column so the headline lines up with the prose below. */
 .hero {
-  padding: clamp(56px, 10vw, 120px) 24px 40px;
+  /* Left edge tracks the 720px body column (so the headline lines up with
+     the prose below); the band extends rightward — up to 960px — so the
+     big headline and the subhead beside it have room. Width can't exceed
+     the space available, so it never overflows. */
+  padding: clamp(56px, 10vw, 120px) 24px 0;
   max-width: 960px;
-  margin: 0 auto;
+  margin-left: max(0px, (100% - 720px) / 2);
+  margin-right: 24px;
   text-align: left;
 }
 
-.hero-h {
-  font-size: clamp(52px, 9vw, 120px);
-  font-weight: 900;
-  margin: 0 0 clamp(28px, 4vw, 44px);
-  letter-spacing: -0.035em;
-  line-height: 0.92;
+/* The headline is three stacked lines ("The web is" / "drowning" / "in
+   AI."). The <h1> is display:contents so its line-spans become flex rows
+   (each full-width) while the heading keeps its full-sentence semantics; the
+   subhead card then wraps onto its own row beneath them. */
+.hero-head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
-.hero-h .ink { color: var(--accent); font-style: italic; }
+.hero-h {
+  display: contents;
+  font-size: clamp(48px, 8.8vw, 112px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+.hl { flex: 0 0 100%; margin: 0; }
+.hl.ink { color: var(--accent); font-style: italic; }
 
 .hero-sub {
-  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  font-size: clamp(15px, 2.1vw, 20px);
+  margin: clamp(48px, 7vw, 80px) 0;
+  padding: 0 1.5rem 1rem;
+  border: 2px solid var(--muted);
+  border-radius: 26px;
+  line-height: 1.55;
+  color: var(--muted);
+  width: 100%;
+  max-width: 500px;
+}
+.hero-sub .hero-q {
   color: var(--ink);
-  max-width: 56ch;
-  margin: 0 0 clamp(36px, 5vw, 56px);
-  line-height: 1.5;
+  font-weight: 700;
 }
 
-.scroll-cue {
-  display: inline-block;
-  font-size: 24px;
+
+.get-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 30px;
+}
+
+.get-link {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 11px;
+  white-space: nowrap;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   text-decoration: none;
-  color: var(--muted);
-  border: 1.5px solid var(--rule);
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  line-height: 40px;
-  text-align: center;
-  transition: transform 0.18s, border-color 0.18s, color 0.18s;
 }
-.scroll-cue:hover {
+.get-link .arr {
   color: var(--accent);
-  border-color: var(--accent);
-  background: transparent;
-  transform: translateY(3px);
+  transition: transform 0.16s ease;
 }
+.get-link:hover {
+  color: var(--accent);
+  background: none;
+}
+.get-link:hover .arr { transform: translateX(5px); }
+
+.get-note {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--danger);
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 8px;
+  line-height: 1.4;
+}
+
+/* On narrow phones the two callouts won't fit side by side — stack them. */
+@media (max-width: 520px) {
+  .get-links {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
 
 /* ── MARQUEE ────────────────────────────────────────────────────── */
 
@@ -419,7 +478,7 @@ main {
   padding: 0 24px;
 }
 
-.prose, .product {
+.product {
   padding: clamp(48px, 7vw, 80px) 0;
 }
 
@@ -445,99 +504,6 @@ main {
 .product h2 {
   font-size: clamp(38px, 6.5vw, 68px);
   margin: 0 0 0.6em;
-}
-
-/* ── PICKER (manifesto → product nav) ────────────────────────────── */
-
-.picker {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin: clamp(40px, 6vw, 60px) 0 0;
-}
-
-.pick {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 22px 22px 56px;
-  background: var(--bg);
-  color: var(--ink);
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  box-shadow: 6px 6px 0 var(--accent);
-  text-decoration: none;
-  overflow: visible;
-  transition: transform 0.14s, box-shadow 0.14s, background 0.14s, color 0.14s;
-}
-
-.pick:hover {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--ink);
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 var(--accent);
-}
-
-.pick-eyebrow {
-  display: block;
-  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  font-size: 15px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.pick:hover .pick-eyebrow { color: var(--accent-2); }
-
-.pick-name {
-  display: block;
-  font-family: "Literata", ui-serif, Georgia, "Times New Roman", serif;
-  font-weight: 800;
-  font-size: clamp(22px, 3.4vw, 30px);
-  line-height: 1.08;
-  letter-spacing: -0.012em;
-}
-
-.pick-arrow {
-  position: absolute;
-  bottom: 18px;
-  right: 22px;
-  font-size: 26px;
-  line-height: 1;
-  color: var(--accent);
-  transition: transform 0.18s, color 0.18s;
-}
-.pick:hover .pick-arrow {
-  color: var(--bg);
-  transform: translateY(3px);
-}
-
-.pick-badge {
-  position: absolute;
-  bottom: 18px;
-  left: 22px;
-  z-index: 2;
-  display: inline-block;
-  padding: 4px 10px;
-  background: var(--danger);
-  color: #fff;
-  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  border-radius: 999px;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-
-@media (max-width: 560px) {
-  .picker { grid-template-columns: 1fr; }
-  .pick { padding: 18px 18px 52px; }
-  .pick-eyebrow { font-size: 13px; }
-  .pick-badge { bottom: 16px; left: 18px; font-size: 9.5px; padding: 3px 9px; }
 }
 
 /* ── DEMO CARD (extension) ──────────────────────────────────────── */
@@ -712,7 +678,7 @@ footer a { color: var(--muted); }
 }
 
 .page h1 {
-  font-size: clamp(40px, 6vw, 64px);
+  font-size: clamp(50px, 6vw, 64px);
   margin: 0 0 12px;
 }
 
