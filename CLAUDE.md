@@ -139,7 +139,7 @@ Be brief. Comment only when the *why* isn't obvious from the code itself — hid
 
 ## Issue tracking & workflow
 
-Linear + Git workflow lives in `~/.claude/CLAUDE.md` (Linear SSOT + Git workflow sections). The `## Source of truth` block at the top of this file scopes those behaviors to this repo.
+The Linear + Git workflow lives in the `linear-workflow` skill (`~/.claude/skills/linear-workflow/`). The `## Source of truth` block at the top of this file scopes it to this repo.
 
 Enshittifier-specific notes:
 
